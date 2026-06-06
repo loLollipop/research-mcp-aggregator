@@ -1,0 +1,65 @@
+{
+  "strategy": "vendor-for-source-audit-and-porting",
+  "runtime_policy": "Do not run or proxy these repositories as external MCP servers. Clone them only for source audit, provenance tracking, and porting selected capabilities into research-mcp local adapters.",
+  "sources": [
+    {
+      "key": "pfc-mcp",
+      "repo": "https://github.com/yusong652/pfc-mcp.git",
+      "target": "vendors/external/pfc-mcp",
+      "domain": "simulation/pfc",
+      "priority": 1,
+      "expected_capabilities": [
+        "Itasca PFC Python environment integration",
+        "PFC command/script execution",
+        "history variable access",
+        "plotting or result extraction helpers"
+      ],
+      "audit_status": "pending",
+      "porting_notes": "Audit first; port PFC Python/API integration into local adapter, keeping pfc_run_script and pfc_parse_history as fallbacks."
+    },
+    {
+      "key": "ansys-mcp-server",
+      "repo": "https://github.com/knewnothing-git/ansys-mcp-server.git",
+      "target": "vendors/external/ansys-mcp-server",
+      "domain": "simulation/fluent",
+      "priority": 2,
+      "expected_capabilities": [
+        "PyAnsys or PyFluent session management",
+        "Fluent case/data loading",
+        "journal or TUI command execution",
+        "result or residual export"
+      ],
+      "audit_status": "pending",
+      "porting_notes": "Audit PyFluent control paths; port stable session and export helpers into local Fluent backend if license and dependencies allow."
+    },
+    {
+      "key": "comsol-multiphysics-mcp",
+      "repo": "https://github.com/wjc9011/comsol_multiphysics_mcp.git",
+      "target": "vendors/external/comsol-multiphysics-mcp",
+      "domain": "simulation/comsol",
+      "priority": 3,
+      "expected_capabilities": [
+        "COMSOL model loading",
+        "parameter setting",
+        "solve execution",
+        "result/table export"
+      ],
+      "audit_status": "pending",
+      "porting_notes": "Compare with comsol-mcp; prefer portable COMSOL API, LiveLink, MPh, or server-based logic that can be internalized."
+    },
+    {
+      "key": "comsol-mcp",
+      "repo": "https://github.com/Ching-Chiang/comsol-mcp.git",
+      "target": "vendors/external/comsol-mcp",
+      "domain": "simulation/comsol",
+      "priority": 4,
+      "expected_capabilities": [
+        "COMSOL API integration",
+        "model inspection",
+        "solve and export helpers"
+      ],
+      "audit_status": "pending",
+      "porting_notes": "Alternative COMSOL implementation for comparison; port only clearly licensed and maintainable backend logic."
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "engineering-research-mcp": {
+      "command": "python",
+      "args": ["-m", "research_mcp.server"],
+      "type": "stdio",
+      "env": {
+        "PYTHONPATH": "D:/path/to/research-mcp-aggregator/src",
+        "COMSOL_CMD": "comsol",
+        "FLUENT_CMD": "fluent",
+        "PFC_CMD": "pfc",
+        "LATEX_CMD": "latexmk",
+        "ZOTERO_API_KEY": "${ZOTERO_API_KEY}",
+        "ZOTERO_LIBRARY_ID": "${ZOTERO_LIBRARY_ID}",
+        "ZOTERO_LIBRARY_TYPE": "user"
+      }
+    }
+  }
+}
