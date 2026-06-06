@@ -8,7 +8,7 @@ This project is designed as a research operating layer for engineering workflows
 2. save useful papers into Zotero,
 3. run or manage COMSOL / PFC / Fluent simulations,
 4. convert results into figures,
-5. prepare references, LaTeX manuscripts, and Word reports.
+5. prepare references, LaTeX manuscripts, Word reports, and Nature-style submission assets.
 
 ## Self-contained architecture
 
@@ -56,12 +56,16 @@ The `research_*` tools are side-effect-free orchestration helpers. They do not s
 | `research_literature_review_plan` | Compose paper search, citation expansion, Zotero/library management, and BibTeX synthesis stages |
 | `research_simulation_study_plan` | Compose simulation design, live/batch execution, parser, and figure-generation stages |
 | `research_paper_asset_pack` | Compose claim-evidence mapping, citation assets, LaTeX/docx manuscript assets, and submission checks |
+| `nature_manuscript_plan` | Plan a Nature-style manuscript narrative from central claim, evidence, figures, and target journal fit |
+| `nature_figure_package_plan` | Plan a multi-panel figure package with claim alignment, source-data traceability, and quality control |
+| `nature_submission_readiness_checklist` | Create a submission-readiness checklist for manuscript assets, evidence, reporting, data, code, and simulation outputs |
 
 ## Current tools
 
 | Module | Tools | Purpose |
 | --- | --- | --- |
 | Research workflows | `research_capability_list`, `research_capability_get`, `research_literature_review_plan`, `research_simulation_study_plan`, `research_paper_asset_pack` | Compose lower-level tools into side-effect-free literature review, simulation study, and manuscript asset plans |
+| Nature manuscript workflows | `nature_manuscript_plan`, `nature_figure_package_plan`, `nature_submission_readiness_checklist` | Compose Nature-style manuscript narrative, figure package, evidence, reporting, data/code, and submission-readiness plans |
 | Internal capability catalog | `external_mcp_list`, `external_mcp_get`, `external_mcp_config_snippet`, `external_mcp_compose_plan`, `engineering_workflow_template` | Map formerly external MCP needs to local `research-mcp` tools and compose migration-friendly one-server workflows |
 | ArXiv | `arxiv_search`, `arxiv_get_paper` | Search preprints and fetch paper metadata |
 | Semantic Scholar | `s2_search`, `s2_get_paper`, `s2_get_citations`, `s2_get_references` | Search papers and citation/reference networks |

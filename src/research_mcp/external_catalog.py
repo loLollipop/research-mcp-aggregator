@@ -256,6 +256,31 @@ INTERNAL_CAPABILITIES: tuple[InternalCapability, ...] = (
         workflow_roles=("post_processing", "figure_generation"),
         output_types=("svg_figure", "png_figure", "pdf_figure"),
     ),
+    InternalCapability(
+        key="nature-manuscript",
+        domain="writing/nature",
+        name="Nature-style manuscript workflow planning",
+        status="local side-effect-free workflow adapter",
+        purpose=(
+            "Plan Nature-style manuscript narratives, figure packages, and "
+            "submission-readiness checks from claims, evidence, and source assets."
+        ),
+        internal_tools=(
+            "nature_manuscript_plan",
+            "nature_figure_package_plan",
+            "nature_submission_readiness_checklist",
+        ),
+        replaces=("nature-writing-skills", "nature-figure-skills"),
+        configuration="No external service configuration is required for planning tools.",
+        maturity="stable",
+        dependencies=("manuscript source assets", "figure source data", "citation records"),
+        workflow_roles=(
+            "manuscript_preparation",
+            "figure_generation",
+            "submission_readiness",
+        ),
+        output_types=("manuscript_plan", "figure_package_plan", "submission_checklist"),
+    ),
 )
 
 

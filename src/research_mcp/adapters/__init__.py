@@ -82,6 +82,7 @@ def discover_adapters() -> None:
         external_mcp_adapter,
         figure_adapter,
         latex_adapter,
+        nature_adapter,
         openalex_adapter,
         pfc_docs_adapter,
         semantic_scholar_adapter,

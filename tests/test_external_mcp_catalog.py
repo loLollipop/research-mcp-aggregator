@@ -36,6 +36,18 @@ async def test_external_mcp_list_includes_maturity_metadata():
 
 
 @pytest.mark.asyncio
+async def test_external_mcp_list_includes_nature_workflow_capability():
+    adapter = ExternalMCPAdapter()
+    result = await adapter.list_servers("nature")
+
+    assert result["count"] == 1
+    capability = result["capabilities"][0]
+    assert capability["key"] == "nature-manuscript"
+    assert "nature_manuscript_plan" in capability["internal_tools"]
+    assert "submission_readiness" in capability["workflow_roles"]
+
+
+@pytest.mark.asyncio
 async def test_engineering_workflow_template_uses_internal_tools():
     adapter = ExternalMCPAdapter()
     result = await adapter.workflow_template("laser waterjet rock breaking", "pfc", "paper")
