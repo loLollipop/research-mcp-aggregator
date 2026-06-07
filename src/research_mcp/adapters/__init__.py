@@ -37,6 +37,8 @@ class AdapterMeta:
 class BaseAdapter(ABC):
     """Base class for all research MCP adapters."""
 
+    adapter_name: str | None = None
+
     @abstractmethod
     def metadata(self) -> AdapterMeta:
         """Return adapter metadata and tool list."""
@@ -93,8 +95,10 @@ def discover_adapters() -> None:
     )
 
     for cls in _PENDING:
-        instance = cls()
-        meta = instance.metadata()
-        _ADAPTERS[meta.name] = cls
-        logger.debug("Registered adapter: %s", meta.name)
+        adapter_name = cls.adapter_name
+        if adapter_name is None:
+            instance = cls()
+            adapter_name = instance.metadata().name
+        _ADAPTERS[adapter_name] = cls
+        logger.debug("Registered adapter: %s", adapter_name)
     _PENDING.clear()

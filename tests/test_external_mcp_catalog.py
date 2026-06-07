@@ -21,7 +21,8 @@ async def test_external_mcp_config_snippet_points_to_research_mcp():
     server = result["snippet"]["mcpServers"]["engineering-research-mcp"]
     assert result["mode"] == "single_mcp_config"
     assert "pfc_run_script" in result["internal_tools"]
-    assert server["args"] == ["-m", "research_mcp.server"]
+    assert server["command"] == "research-mcp"
+    assert "PYTHONPATH" not in server["env"]
 
 
 @pytest.mark.asyncio

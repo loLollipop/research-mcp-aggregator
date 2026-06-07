@@ -8,6 +8,53 @@ import pytest
 from research_mcp.adapters.simulation_adapter import SimulationAdapter
 from research_mcp.server import ResearchMCPServer
 
+EXPECTED_SIMULATION_TOOL_NAMES = {
+    "simulation_check_config",
+    "simulation_workflow_template",
+    "comsol_check_mph",
+    "comsol_server_connect",
+    "comsol_server_disconnect",
+    "comsol_server_info",
+    "comsol_model_load",
+    "comsol_model_create",
+    "comsol_get_parameters",
+    "comsol_set_parameters",
+    "comsol_solve",
+    "comsol_solve_status",
+    "comsol_list_studies",
+    "comsol_inspect_file",
+    "comsol_run_batch",
+    "comsol_parse_table",
+    "fluent_check_pyfluent",
+    "fluent_launch_session",
+    "fluent_inspect_file",
+    "fluent_list_sessions",
+    "fluent_execute_tui",
+    "fluent_close_session",
+    "fluent_run_journal",
+    "fluent_parse_residuals",
+    "pfc_run_script",
+    "pfc_parse_history",
+    "pfc_bridge_status",
+    "pfc_execute_code",
+    "pfc_execute_task",
+    "pfc_check_task_status",
+    "pfc_list_tasks",
+    "pfc_interrupt_task",
+}
+
+
+@pytest.mark.asyncio
+async def test_simulation_metadata_tool_names_match_public_contract():
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+
+    tool_names = [tool.name for tool in adapter.metadata().tools]
+
+    assert set(tool_names) == EXPECTED_SIMULATION_TOOL_NAMES
+    assert len(tool_names) == len(EXPECTED_SIMULATION_TOOL_NAMES)
+    assert not any("__" in name for name in tool_names)
+
 
 @pytest.mark.asyncio
 async def test_simulation_config_defaults():
@@ -255,6 +302,80 @@ async def test_comsol_parse_table_summarizes_exported_table(tmp_path):
     assert result["summaries"]["temperature"]["max"] == 360.0
     assert result["summaries"]["stress"]["mean"] == pytest.approx(12.3333333333)
     assert output_plot.exists()
+
+
+@pytest.mark.asyncio
+async def test_simulation_rejects_invalid_executable_command():
+    adapter = SimulationAdapter()
+
+    with pytest.raises(ValueError, match="single executable"):
+        await adapter.initialize({"comsol_cmd": "comsol --unsafe"})
+
+
+@pytest.mark.asyncio
+async def test_simulation_rejects_shell_like_extra_args(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    model = tmp_path / "model.mph"
+    model.write_text("model", encoding="utf-8")
+
+    with patch(
+        "research_mcp.adapters.simulation_adapter.run_command",
+        side_effect=AssertionError("subprocess should not start"),
+    ):
+        with pytest.raises(ValueError, match="shell control"):
+            await adapter.comsol_run_batch(str(model), extra_args="-np 2; rm -rf out")
+
+
+@pytest.mark.asyncio
+async def test_fluent_run_journal_rejects_invalid_working_dir(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    journal = tmp_path / "run.jou"
+    journal.write_text("/solve/iterate 1\n", encoding="utf-8")
+
+    with pytest.raises(FileNotFoundError, match="Working directory"):
+        await adapter.fluent_run_journal(str(journal), working_dir=str(tmp_path / "missing"))
+
+
+@pytest.mark.asyncio
+async def test_comsol_run_batch_rejects_unsupported_output_suffix(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    model = tmp_path / "model.mph"
+    model.write_text("model", encoding="utf-8")
+
+    with patch(
+        "research_mcp.adapters.simulation_adapter.run_command",
+        side_effect=AssertionError("subprocess should not start"),
+    ):
+        with pytest.raises(ValueError, match="Unsupported output suffix"):
+            await adapter.comsol_run_batch(str(model), output_file="result.txt")
+
+
+@pytest.mark.asyncio
+async def test_parse_plot_rejects_unsupported_suffix_before_directory_creation(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    residual_file = tmp_path / "residuals.csv"
+    residual_file.write_text("iteration,continuity\n1,1e-2\n", encoding="utf-8")
+    output_plot = tmp_path / "new" / "residuals.txt"
+
+    with pytest.raises(ValueError, match="Unsupported output suffix"):
+        await adapter.fluent_parse_residuals(str(residual_file), output_plot=str(output_plot))
+
+    assert not output_plot.parent.exists()
+
+
+@pytest.mark.asyncio
+async def test_pfc_run_script_rejects_invalid_working_dir(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    script = tmp_path / "run.p3dat"
+    script.write_text("model new\n", encoding="utf-8")
+
+    with pytest.raises(FileNotFoundError, match="Working directory"):
+        await adapter.pfc_run_script(str(script), working_dir=str(tmp_path / "missing"))
 
 
 # ------------------------------------------------------------------

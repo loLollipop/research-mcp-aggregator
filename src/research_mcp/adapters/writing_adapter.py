@@ -17,6 +17,8 @@ from research_mcp.adapters import (
 class WritingAdapter(BaseAdapter):
     """Research writing utilities: BibTeX formatting, citation key generation, etc."""
 
+    adapter_name = "writing"
+
     def metadata(self) -> AdapterMeta:
         return AdapterMeta(
             name="writing",
@@ -28,11 +30,16 @@ class WritingAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "title": {"type": "string", "description": "Paper title"},
+                            "title": {
+                                "type": "string",
+                                "description": "Paper title",
+                                "minLength": 1,
+                            },
                             "authors": {
                                 "type": "array",
                                 "items": {"type": "string"},
                                 "description": "List of author names",
+                                "minItems": 1,
                             },
                             "year": {"type": "integer", "description": "Publication year"},
                             "journal": {"type": "string", "description": "Journal or venue name"},
@@ -57,6 +64,7 @@ class WritingAdapter(BaseAdapter):
                             "first_author": {
                                 "type": "string",
                                 "description": "First author last name",
+                                "minLength": 1,
                             },
                             "year": {"type": "integer", "description": "Publication year"},
                             "title": {
@@ -74,7 +82,11 @@ class WritingAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "bibtex": {"type": "string", "description": "Raw BibTeX entry string"},
+                            "bibtex": {
+                                "type": "string",
+                                "description": "Raw BibTeX entry string",
+                                "minLength": 1,
+                            },
                         },
                         "required": ["bibtex"],
                     },
@@ -99,25 +111,27 @@ class WritingAdapter(BaseAdapter):
     ) -> dict[str, Any]:
         if not key and authors:
             first = authors[0].split()[-1]
-            key = f"{first}{year}"
+            key = self._normalize_citation_key(f"{first}{year}")
         elif not key:
             key = f"unknown{year}"
+        else:
+            key = self._normalize_citation_key(key)
 
         bibtype = "article" if journal else "misc"
         author_str = " and ".join(authors)
 
         lines = [f"@{bibtype}{{{key},"]
-        lines.append(f"  title     = {{{title}}},")
-        lines.append(f"  author    = {{{author_str}}},")
+        lines.append(f"  title     = {{{self._escape_bibtex_value(title)}}},")
+        lines.append(f"  author    = {{{self._escape_bibtex_value(author_str)}}},")
         lines.append(f"  year      = {{{year}}},")
         if journal:
-            lines.append(f"  journal   = {{{journal}}},")
+            lines.append(f"  journal   = {{{self._escape_bibtex_value(journal)}}},")
         if doi:
-            lines.append(f"  doi       = {{{doi}}},")
+            lines.append(f"  doi       = {{{self._escape_bibtex_value(doi)}}},")
         if url:
-            lines.append(f"  url       = {{{url}}},")
+            lines.append(f"  url       = {{{self._escape_bibtex_value(url)}}},")
         if abstract:
-            lines.append(f"  abstract  = {{{abstract}}},")
+            lines.append(f"  abstract  = {{{self._escape_bibtex_value(abstract)}}},")
         lines.append("}")
 
         return {"key": key, "bibtex": "\n".join(lines)}
@@ -131,7 +145,14 @@ class WritingAdapter(BaseAdapter):
             words = [w for w in re.findall(r"[A-Za-z]+", title) if len(w) > 3]
             if words:
                 key += words[0][:4].capitalize()
-        return {"key": key}
+        return {"key": self._normalize_citation_key(key)}
+
+    def _normalize_citation_key(self, key: str) -> str:
+        normalized = re.sub(r"[^A-Za-z0-9:_-]+", "", key)
+        return normalized or "unknown"
+
+    def _escape_bibtex_value(self, value: str) -> str:
+        return value.replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}").replace("\n", " ")
 
     async def parse_bibtex(self, bibtex: str) -> dict[str, Any]:
         result: dict[str, Any] = {}

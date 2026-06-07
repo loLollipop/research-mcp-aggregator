@@ -20,6 +20,8 @@ ARXIV_API = "https://export.arxiv.org/api/query"
 class ArxivAdapter(BaseAdapter):
     """Search arXiv for scientific papers."""
 
+    adapter_name = "arxiv"
+
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
 
@@ -37,11 +39,14 @@ class ArxivAdapter(BaseAdapter):
                             "query": {
                                 "type": "string",
                                 "description": "Search query using arXiv query syntax",
+                                "minLength": 1,
                             },
                             "max_results": {
                                 "type": "integer",
                                 "description": "Maximum number of results (default 10, max 50)",
                                 "default": 10,
+                                "minimum": 1,
+                                "maximum": 50,
                             },
                             "sort_by": {
                                 "type": "string",
@@ -63,6 +68,7 @@ class ArxivAdapter(BaseAdapter):
                             "paper_id": {
                                 "type": "string",
                                 "description": "arXiv paper ID, e.g. 2301.07041",
+                                "minLength": 1,
                             },
                         },
                         "required": ["paper_id"],
@@ -129,7 +135,7 @@ class ArxivAdapter(BaseAdapter):
         params = {
             "search_query": query,
             "start": "0",
-            "max_results": str(min(max_results, 50)),
+            "max_results": str(max(1, min(max_results, 50))),
             "sortBy": sort_map.get(sort_by, "relevance"),
             "sortOrder": "descending",
         }

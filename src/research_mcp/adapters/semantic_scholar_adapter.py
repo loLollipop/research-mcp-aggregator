@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -20,6 +21,8 @@ S2_API = "https://api.semanticscholar.org/graph/v1"
 class SemanticScholarAdapter(BaseAdapter):
     """Search Semantic Scholar for papers with citation data."""
 
+    adapter_name = "semantic_scholar"
+
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
 
@@ -34,11 +37,17 @@ class SemanticScholarAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "query": {"type": "string", "description": "Search query"},
+                            "query": {
+                                "type": "string",
+                                "description": "Search query",
+                                "minLength": 1,
+                            },
                             "limit": {
                                 "type": "integer",
                                 "description": "Max results (default 10)",
                                 "default": 10,
+                                "minimum": 1,
+                                "maximum": 50,
                             },
                             "year": {
                                 "type": "string",
@@ -62,6 +71,7 @@ class SemanticScholarAdapter(BaseAdapter):
                             "paper_id": {
                                 "type": "string",
                                 "description": "Paper ID (S2 ID, DOI, ArXiv ID, etc.)",
+                                "minLength": 1,
                             },
                         },
                         "required": ["paper_id"],
@@ -74,11 +84,17 @@ class SemanticScholarAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "paper_id": {"type": "string", "description": "Paper ID"},
+                            "paper_id": {
+                                "type": "string",
+                                "description": "Paper ID",
+                                "minLength": 1,
+                            },
                             "limit": {
                                 "type": "integer",
                                 "description": "Max results (default 10)",
                                 "default": 10,
+                                "minimum": 1,
+                                "maximum": 50,
                             },
                         },
                         "required": ["paper_id"],
@@ -91,11 +107,17 @@ class SemanticScholarAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "paper_id": {"type": "string", "description": "Paper ID"},
+                            "paper_id": {
+                                "type": "string",
+                                "description": "Paper ID",
+                                "minLength": 1,
+                            },
                             "limit": {
                                 "type": "integer",
                                 "description": "Max results (default 10)",
                                 "default": 10,
+                                "minimum": 1,
+                                "maximum": 50,
                             },
                         },
                         "required": ["paper_id"],
@@ -126,7 +148,7 @@ class SemanticScholarAdapter(BaseAdapter):
     ) -> dict[str, Any]:
         params: dict[str, str] = {
             "query": query,
-            "limit": str(min(limit, 50)),
+            "limit": str(max(1, min(limit, 50))),
             "fields": self.FIELDS,
         }
         if year:
@@ -141,16 +163,18 @@ class SemanticScholarAdapter(BaseAdapter):
         return {"total": data.get("total", 0), "papers": data.get("data", [])}
 
     async def get_paper(self, paper_id: str) -> dict[str, Any]:
+        encoded_id = quote(paper_id, safe="")
         resp = await self._client.get(  # type: ignore[union-attr]
-            f"{S2_API}/paper/{paper_id}", params={"fields": self.FIELDS}
+            f"{S2_API}/paper/{encoded_id}", params={"fields": self.FIELDS}
         )
         resp.raise_for_status()
         return resp.json()
 
     async def get_citations(self, paper_id: str, limit: int = 10) -> dict[str, Any]:
-        params = {"fields": "paperId,title,year,authors", "limit": str(min(limit, 50))}
+        encoded_id = quote(paper_id, safe="")
+        params = {"fields": "paperId,title,year,authors", "limit": str(max(1, min(limit, 50)))}
         resp = await self._client.get(  # type: ignore[union-attr]
-            f"{S2_API}/paper/{paper_id}/citations", params=params
+            f"{S2_API}/paper/{encoded_id}/citations", params=params
         )
         resp.raise_for_status()
         data = resp.json()
@@ -160,9 +184,10 @@ class SemanticScholarAdapter(BaseAdapter):
         }
 
     async def get_references(self, paper_id: str, limit: int = 10) -> dict[str, Any]:
-        params = {"fields": "paperId,title,year,authors", "limit": str(min(limit, 50))}
+        encoded_id = quote(paper_id, safe="")
+        params = {"fields": "paperId,title,year,authors", "limit": str(max(1, min(limit, 50)))}
         resp = await self._client.get(  # type: ignore[union-attr]
-            f"{S2_API}/paper/{paper_id}/references", params=params
+            f"{S2_API}/paper/{encoded_id}/references", params=params
         )
         resp.raise_for_status()
         data = resp.json()

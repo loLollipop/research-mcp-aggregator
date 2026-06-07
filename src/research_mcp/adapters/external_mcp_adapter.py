@@ -16,6 +16,8 @@ from research_mcp.external_catalog import get_external_mcp, list_external_mcps
 class ExternalMCPAdapter(BaseAdapter):
     """Expose local capability replacements for formerly external MCPs."""
 
+    adapter_name = "external_mcp_catalog"
+
     def metadata(self) -> AdapterMeta:
         return AdapterMeta(
             name="external_mcp_catalog",
@@ -41,6 +43,7 @@ class ExternalMCPAdapter(BaseAdapter):
                             "key": {
                                 "type": "string",
                                 "description": "Capability or former external MCP key",
+                                "minLength": 1,
                             },
                         },
                         "required": ["key"],
@@ -53,7 +56,11 @@ class ExternalMCPAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "key": {"type": "string", "description": "Capability key to highlight"},
+                            "key": {
+                                "type": "string",
+                                "description": "Capability key to highlight",
+                                "minLength": 1,
+                            },
                             "manager": {"type": "string", "enum": ["python"], "default": "python"},
                         },
                         "required": ["key"],
@@ -117,11 +124,9 @@ class ExternalMCPAdapter(BaseAdapter):
         snippet = {
             "mcpServers": {
                 "engineering-research-mcp": {
-                    "command": "python",
-                    "args": ["-m", "research_mcp.server"],
+                    "command": "research-mcp",
                     "type": "stdio",
                     "env": {
-                        "PYTHONPATH": "D:/path/to/research-mcp-aggregator/src",
                         "COMSOL_CMD": "comsol",
                         "FLUENT_CMD": "fluent",
                         "PFC_CMD": "pfc",

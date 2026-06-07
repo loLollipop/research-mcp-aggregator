@@ -7,11 +7,15 @@ Aggregates all adapters into a single MCP server.
 from __future__ import annotations
 
 import asyncio
+import copy
+import inspect
 import json
 import logging
 import sys
 from typing import Any
 
+from jsonschema import ValidationError
+from jsonschema.validators import validator_for
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
@@ -47,27 +51,75 @@ class ResearchMCPServer:
                 Tool(
                     name=spec.name,
                     description=spec.description,
-                    inputSchema=spec.input_schema,
+                    inputSchema=self._strict_object_schema(spec.input_schema),
                 )
                 for spec, _ in self._tools.values()
             ]
 
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
-            if name not in self._tools:
-                return [TextContent(type="text", text=f"Unknown tool: {name}")]
-            spec, adapter = self._tools[name]
-            try:
-                result = await spec.handler(**arguments)
-                text = (
-                    json.dumps(result, ensure_ascii=False, indent=2)
-                    if isinstance(result, (dict, list))
-                    else str(result)
-                )
-                return [TextContent(type="text", text=text)]
-            except Exception as e:
-                logger.exception("Tool %s failed", name)
-                return [TextContent(type="text", text=f"Error: {type(e).__name__}: {e}")]
+        async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
+            return await self._call_tool(name, arguments)
+
+    async def _call_tool(self, name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
+        if name not in self._tools:
+            return self._json_response(
+                {
+                    "status": "error",
+                    "error_type": "unknown_tool",
+                    "tool": name,
+                    "message": "Unknown tool",
+                }
+            )
+
+        spec, _adapter = self._tools[name]
+        tool_arguments = {} if arguments is None else arguments
+        try:
+            self._validate_arguments(spec, tool_arguments)
+            result = spec.handler(**tool_arguments)
+            if inspect.isawaitable(result):
+                result = await result
+            return self._json_response(result)
+        except ValidationError as exc:
+            return self._json_response(
+                {
+                    "status": "validation_error",
+                    "error_type": "invalid_arguments",
+                    "tool": name,
+                    "message": exc.message,
+                    "path": list(exc.path),
+                }
+            )
+        except Exception:
+            logger.exception("Tool %s failed", name)
+            return self._json_response(
+                {
+                    "status": "error",
+                    "error_type": "handler_failed",
+                    "tool": name,
+                    "message": "Tool execution failed. Check server logs for details.",
+                }
+            )
+
+    def _validate_arguments(self, spec: ToolSpec, arguments: dict[str, Any]) -> None:
+        schema = self._strict_object_schema(spec.input_schema or {"type": "object"})
+        validator_cls = validator_for(schema)
+        validator_cls.check_schema(schema)
+        validator = validator_cls(schema)
+        validator.validate(arguments)
+
+    def _strict_object_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
+        strict_schema = copy.deepcopy(schema)
+        if strict_schema.get("type") == "object" and "additionalProperties" not in strict_schema:
+            strict_schema["additionalProperties"] = False
+        return strict_schema
+
+    def _json_response(self, result: Any) -> list[TextContent]:
+        text = (
+            json.dumps(result, ensure_ascii=False, indent=2)
+            if isinstance(result, (dict, list))
+            else str(result)
+        )
+        return [TextContent(type="text", text=text)]
 
     async def initialize(self, config: dict[str, Any] | None = None) -> None:
         """Discover and initialize all adapters."""

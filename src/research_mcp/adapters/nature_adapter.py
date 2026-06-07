@@ -11,6 +11,8 @@ from research_mcp.adapters import AdapterMeta, BaseAdapter, ToolSpec, register_a
 class NatureManuscriptAdapter(BaseAdapter):
     """Plan high-impact manuscript workflows without side effects."""
 
+    adapter_name = "nature_manuscript_workflows"
+
     def metadata(self) -> AdapterMeta:
         return AdapterMeta(
             name="nature_manuscript_workflows",
@@ -27,10 +29,15 @@ class NatureManuscriptAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "title": {"type": "string", "description": "Working manuscript title"},
+                            "title": {
+                                "type": "string",
+                                "description": "Working manuscript title",
+                                "minLength": 1,
+                            },
                             "central_claim": {
                                 "type": "string",
                                 "description": "Main advance or thesis of the paper",
+                                "minLength": 1,
                             },
                             "article_type": {
                                 "type": "string",
@@ -69,6 +76,7 @@ class NatureManuscriptAdapter(BaseAdapter):
                             "storyline": {
                                 "type": "string",
                                 "description": "Figure narrative arc or result sequence",
+                                "minLength": 1,
                             },
                             "claims": {
                                 "type": "array",
@@ -99,7 +107,11 @@ class NatureManuscriptAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "title": {"type": "string", "description": "Working manuscript title"},
+                            "title": {
+                                "type": "string",
+                                "description": "Working manuscript title",
+                                "minLength": 1,
+                            },
                             "has_human_or_animal_data": {"type": "boolean", "default": False},
                             "has_code_outputs": {"type": "boolean", "default": True},
                             "has_simulation_outputs": {"type": "boolean", "default": True},

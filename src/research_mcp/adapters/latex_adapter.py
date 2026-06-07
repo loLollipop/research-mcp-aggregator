@@ -14,6 +14,8 @@ from research_mcp.adapters import AdapterMeta, BaseAdapter, ToolSpec, register_a
 class LatexAdapter(BaseAdapter):
     """Compile and validate local LaTeX projects without external MCP servers."""
 
+    adapter_name = "latex"
+
     def __init__(self) -> None:
         self.latex_cmd = "latexmk"
         self.timeout_seconds = 300
@@ -35,7 +37,11 @@ class LatexAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "main_tex": {"type": "string", "description": "Path to main .tex file"},
+                            "main_tex": {
+                                "type": "string",
+                                "description": "Path to main .tex file",
+                                "minLength": 1,
+                            },
                         },
                         "required": ["main_tex"],
                     },
@@ -47,7 +53,11 @@ class LatexAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "main_tex": {"type": "string", "description": "Path to main .tex file"},
+                            "main_tex": {
+                                "type": "string",
+                                "description": "Path to main .tex file",
+                                "minLength": 1,
+                            },
                             "output_dir": {
                                 "type": "string",
                                 "description": "Optional output directory",
@@ -55,6 +65,7 @@ class LatexAdapter(BaseAdapter):
                             "timeout_seconds": {
                                 "type": "integer",
                                 "description": "Timeout seconds",
+                                "minimum": 1,
                             },
                         },
                         "required": ["main_tex"],
@@ -70,8 +81,13 @@ class LatexAdapter(BaseAdapter):
                             "project_dir": {
                                 "type": "string",
                                 "description": "Directory to create/use",
+                                "minLength": 1,
                             },
-                            "title": {"type": "string", "description": "Document title"},
+                            "title": {
+                                "type": "string",
+                                "description": "Document title",
+                                "minLength": 1,
+                            },
                             "author": {"type": "string", "description": "Document author"},
                         },
                         "required": ["project_dir", "title"],

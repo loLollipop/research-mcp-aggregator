@@ -17,6 +17,8 @@ from research_mcp.adapters import AdapterMeta, BaseAdapter, ToolSpec, register_a
 class FigureAdapter(BaseAdapter):
     """Generate simple publication-ready figures from arrays or CSV files."""
 
+    adapter_name = "figure"
+
     def metadata(self) -> AdapterMeta:
         return AdapterMeta(
             name="figure",
@@ -28,11 +30,12 @@ class FigureAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "x": {"type": "array", "items": {"type": "number"}},
-                            "y": {"type": "array", "items": {"type": "number"}},
+                            "x": {"type": "array", "items": {"type": "number"}, "minItems": 1},
+                            "y": {"type": "array", "items": {"type": "number"}, "minItems": 1},
                             "output_path": {
                                 "type": "string",
                                 "description": "Output file path (.svg/.png/.pdf)",
+                                "minLength": 1,
                             },
                             "title": {"type": "string"},
                             "xlabel": {"type": "string"},
@@ -53,10 +56,26 @@ class FigureAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "csv_path": {"type": "string", "description": "Input CSV file"},
-                            "x_column": {"type": "string", "description": "Column name for x"},
-                            "y_column": {"type": "string", "description": "Column name for y"},
-                            "output_path": {"type": "string", "description": "Output file path"},
+                            "csv_path": {
+                                "type": "string",
+                                "description": "Input CSV file",
+                                "minLength": 1,
+                            },
+                            "x_column": {
+                                "type": "string",
+                                "description": "Column name for x",
+                                "minLength": 1,
+                            },
+                            "y_column": {
+                                "type": "string",
+                                "description": "Column name for y",
+                                "minLength": 1,
+                            },
+                            "output_path": {
+                                "type": "string",
+                                "description": "Output file path",
+                                "minLength": 1,
+                            },
                             "title": {"type": "string"},
                             "xlabel": {"type": "string"},
                             "ylabel": {"type": "string"},

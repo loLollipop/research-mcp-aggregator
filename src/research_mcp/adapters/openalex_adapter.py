@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -20,6 +21,8 @@ OPENALEX_API = "https://api.openalex.org"
 class OpenAlexAdapter(BaseAdapter):
     """Search OpenAlex for papers, authors, and institutions."""
 
+    adapter_name = "openalex"
+
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
 
@@ -34,11 +37,17 @@ class OpenAlexAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "query": {"type": "string", "description": "Search query"},
+                            "query": {
+                                "type": "string",
+                                "description": "Search query",
+                                "minLength": 1,
+                            },
                             "limit": {
                                 "type": "integer",
                                 "description": "Max results (default 10)",
                                 "default": 10,
+                                "minimum": 1,
+                                "maximum": 50,
                             },
                             "from_year": {"type": "integer", "description": "Filter: from year"},
                             "to_year": {"type": "integer", "description": "Filter: to year"},
@@ -56,6 +65,7 @@ class OpenAlexAdapter(BaseAdapter):
                             "work_id": {
                                 "type": "string",
                                 "description": "OpenAlex work ID, URL, or DOI",
+                                "minLength": 1,
                             },
                         },
                         "required": ["work_id"],
@@ -71,6 +81,7 @@ class OpenAlexAdapter(BaseAdapter):
                             "author_id": {
                                 "type": "string",
                                 "description": "OpenAlex author ID (e.g. 'A5023888391')",
+                                "minLength": 1,
                             },
                         },
                         "required": ["author_id"],
@@ -96,7 +107,7 @@ class OpenAlexAdapter(BaseAdapter):
     ) -> dict[str, Any]:
         params: dict[str, Any] = {
             "search": query,
-            "per_page": str(min(limit, 50)),
+            "per_page": str(max(1, min(limit, 50))),
             "select": (
                 "id,title,authorships,publication_year,cited_by_count,"
                 "open_access,primary_location,doi,type"
@@ -116,7 +127,7 @@ class OpenAlexAdapter(BaseAdapter):
         return {"total": data.get("meta", {}).get("count", 0), "works": data.get("results", [])}
 
     async def get_work(self, work_id: str) -> dict[str, Any]:
-        normalized = self._normalize_work_id(work_id)
+        normalized = quote(self._normalize_work_id(work_id), safe=":")
         resp = await self._client.get(  # type: ignore[union-attr]
             f"{OPENALEX_API}/works/{normalized}"
         )
@@ -124,8 +135,9 @@ class OpenAlexAdapter(BaseAdapter):
         return resp.json()
 
     async def get_author(self, author_id: str) -> dict[str, Any]:
+        encoded_id = quote(author_id, safe="")
         resp = await self._client.get(  # type: ignore[union-attr]
-            f"{OPENALEX_API}/authors/{author_id}"
+            f"{OPENALEX_API}/authors/{encoded_id}"
         )
         resp.raise_for_status()
         return resp.json()

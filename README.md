@@ -177,14 +177,30 @@ export LATEX_TIMEOUT_SECONDS="300"
 
 Word/docx support uses `python-docx`, installed with the project dependencies.
 
-## Local development
+## Installation and usage
+
+For an installed package, start the server through the console script:
+
+```bash
+research-mcp
+```
+
+The equivalent module entry point is:
+
+```bash
+python -m research_mcp.server
+```
+
+## Development from source
 
 ```bash
 uv venv
-uv pip install -e ".[all]" pytest pytest-asyncio ruff
+uv pip install -e ".[all]" pytest pytest-asyncio ruff mypy build
 .venv/Scripts/python scripts/vendor_external_mcps.py pfc-mcp
-PYTHONPATH=src .venv/Scripts/python -m pytest tests/ -v
+.venv/Scripts/python -m pytest tests/ -v
 ```
+
+PFC documentation search currently reads vendored `pfc-mcp` documentation resources from a repository checkout. Installed-package deployments should either run from a checkout with those resources available or package equivalent documentation resources alongside the runtime.
 
 ## Upstream MCP source internalization
 
@@ -205,6 +221,30 @@ Priority order:
 3. compare both COMSOL MCPs and port maintainable COMSOL API / LiveLink / MPh logic.
 
 ## MCP config example
+
+Installed-package configuration:
+
+```json
+{
+  "mcpServers": {
+    "engineering-research-mcp": {
+      "command": "research-mcp",
+      "type": "stdio",
+      "env": {
+        "COMSOL_CMD": "comsol",
+        "FLUENT_CMD": "fluent",
+        "PFC_CMD": "pfc",
+        "LATEX_CMD": "latexmk",
+        "ZOTERO_API_KEY": "your-zotero-key",
+        "ZOTERO_LIBRARY_ID": "your-library-id",
+        "ZOTERO_LIBRARY_TYPE": "user"
+      }
+    }
+  }
+}
+```
+
+Development-from-source configuration:
 
 ```json
 {

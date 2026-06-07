@@ -20,6 +20,8 @@ DEFAULT_VERSION = "7.0"
 class PFCDocsAdapter(BaseAdapter):
     """Browse and search vendored PFC command documentation locally."""
 
+    adapter_name = "pfc_docs"
+
     def metadata(self) -> AdapterMeta:
         return AdapterMeta(
             name="pfc_docs",
@@ -59,11 +61,17 @@ class PFCDocsAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "query": {"type": "string", "description": "Search keywords"},
+                            "query": {
+                                "type": "string",
+                                "description": "Search keywords",
+                                "minLength": 1,
+                            },
                             "limit": {
                                 "type": "integer",
                                 "description": "Max matches",
                                 "default": 10,
+                                "minimum": 1,
+                                "maximum": 50,
                             },
                             "version": {
                                 "type": "string",
@@ -98,11 +106,17 @@ class PFCDocsAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "query": {"type": "string", "description": "Search keywords"},
+                            "query": {
+                                "type": "string",
+                                "description": "Search keywords",
+                                "minLength": 1,
+                            },
                             "limit": {
                                 "type": "integer",
                                 "description": "Max matches",
                                 "default": 10,
+                                "minimum": 1,
+                                "maximum": 50,
                             },
                         },
                         "required": ["query"],
@@ -205,13 +219,14 @@ class PFCDocsAdapter(BaseAdapter):
             if score:
                 matches.append({**item, "score": score})
         matches.sort(key=lambda item: (-item["score"], item["category"], item["name"]))
+        result_limit = max(1, min(limit, 50))
         return {
             "source": "pfc-mcp command_docs",
             "action": "query_command",
             "query": query,
             "version": version,
-            "count": min(len(matches), limit),
-            "matches": matches[: max(1, min(limit, 50))],
+            "count": min(len(matches), result_limit),
+            "matches": matches[:result_limit],
         }
 
     async def browse_python_api(self, api: str = "") -> dict[str, Any]:
@@ -282,12 +297,13 @@ class PFCDocsAdapter(BaseAdapter):
             if score:
                 matches.append({**item, "score": score})
         matches.sort(key=lambda item: (-item["score"], item["api_path"]))
+        result_limit = max(1, min(limit, 50))
         return {
             "source": "pfc-mcp python_sdk_docs",
             "action": "query_python_api",
             "query": query,
-            "count": min(len(matches), limit),
-            "matches": matches[: max(1, min(limit, 50))],
+            "count": min(len(matches), result_limit),
+            "matches": matches[:result_limit],
         }
 
 

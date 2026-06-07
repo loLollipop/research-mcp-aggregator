@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -18,6 +19,8 @@ ZOTERO_API = "https://api.zotero.org"
 @register_adapter
 class ZoteroAdapter(BaseAdapter):
     """Search and write Zotero library items through the Zotero Web API."""
+
+    adapter_name = "zotero"
 
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
@@ -42,11 +45,17 @@ class ZoteroAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "query": {"type": "string", "description": "Search query"},
+                            "query": {
+                                "type": "string",
+                                "description": "Search query",
+                                "minLength": 1,
+                            },
                             "limit": {
                                 "type": "integer",
                                 "description": "Max results",
                                 "default": 10,
+                                "minimum": 1,
+                                "maximum": 50,
                             },
                             "collection_key": {
                                 "type": "string",
@@ -63,7 +72,11 @@ class ZoteroAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "item_key": {"type": "string", "description": "Zotero item key"},
+                            "item_key": {
+                                "type": "string",
+                                "description": "Zotero item key",
+                                "minLength": 1,
+                            },
                         },
                         "required": ["item_key"],
                     },
@@ -75,7 +88,11 @@ class ZoteroAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "name": {"type": "string", "description": "Collection name"}
+                            "name": {
+                                "type": "string",
+                                "description": "Collection name",
+                                "minLength": 1,
+                            }
                         },
                         "required": ["name"],
                     },
@@ -87,7 +104,11 @@ class ZoteroAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "doi": {"type": "string", "description": "Paper DOI"},
+                            "doi": {
+                                "type": "string",
+                                "description": "Paper DOI",
+                                "minLength": 1,
+                            },
                             "collection_key": {
                                 "type": "string",
                                 "description": "Optional collection key",
@@ -108,7 +129,11 @@ class ZoteroAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "item_key": {"type": "string", "description": "Zotero item key"},
+                            "item_key": {
+                                "type": "string",
+                                "description": "Zotero item key",
+                                "minLength": 1,
+                            },
                             "add_tags": {"type": "array", "items": {"type": "string"}},
                             "remove_tags": {"type": "array", "items": {"type": "string"}},
                         },
@@ -149,13 +174,14 @@ class ZoteroAdapter(BaseAdapter):
         self._require_config()
         params = {
             "q": query,
-            "limit": str(min(limit, 50)),
+            "limit": str(max(1, min(limit, 50))),
             "format": "json",
             "include": "data",
         }
         path = f"{self.base_path}/items"
         if collection_key:
-            path = f"{self.base_path}/collections/{collection_key}/items"
+            encoded_collection = quote(collection_key, safe="")
+            path = f"{self.base_path}/collections/{encoded_collection}/items"
         resp = await self._client.get(path, params=params)  # type: ignore[union-attr]
         resp.raise_for_status()
         items = resp.json()
@@ -163,8 +189,9 @@ class ZoteroAdapter(BaseAdapter):
 
     async def get_item(self, item_key: str) -> dict[str, Any]:
         self._require_config()
+        encoded_key = quote(item_key, safe="")
         resp = await self._client.get(  # type: ignore[union-attr]
-            f"{self.base_path}/items/{item_key}",
+            f"{self.base_path}/items/{encoded_key}",
             params={"format": "json", "include": "data"},
         )
         resp.raise_for_status()
@@ -204,8 +231,9 @@ class ZoteroAdapter(BaseAdapter):
         remove_tags: list[str] | None = None,
     ) -> dict[str, Any]:
         self._require_config()
+        encoded_key = quote(item_key, safe="")
         item_resp = await self._client.get(  # type: ignore[union-attr]
-            f"{self.base_path}/items/{item_key}"
+            f"{self.base_path}/items/{encoded_key}"
         )
         item_resp.raise_for_status()
         item = item_resp.json()
@@ -218,7 +246,7 @@ class ZoteroAdapter(BaseAdapter):
         version = str(data.get("version") or item.get("version") or "")
         headers = {"If-Unmodified-Since-Version": version} if version else {}
         resp = await self._client.put(
-            f"{self.base_path}/items/{item_key}", json=data, headers=headers
+            f"{self.base_path}/items/{encoded_key}", json=data, headers=headers
         )  # type: ignore[union-attr]
         resp.raise_for_status()
         return {

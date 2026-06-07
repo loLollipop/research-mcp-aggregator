@@ -12,6 +12,8 @@ from research_mcp.adapters import AdapterMeta, BaseAdapter, ToolSpec, register_a
 class DocxAdapter(BaseAdapter):
     """Create and edit .docx documents without an external MCP server."""
 
+    adapter_name = "docx"
+
     def metadata(self) -> AdapterMeta:
         return AdapterMeta(
             name="docx",
@@ -23,7 +25,11 @@ class DocxAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "output_path": {"type": "string", "description": "Output .docx path"},
+                            "output_path": {
+                                "type": "string",
+                                "description": "Output .docx path",
+                                "minLength": 1,
+                            },
                             "title": {"type": "string", "description": "Optional document title"},
                             "paragraphs": {
                                 "type": "array",
@@ -41,7 +47,11 @@ class DocxAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "docx_path": {"type": "string", "description": "Input .docx path"},
+                            "docx_path": {
+                                "type": "string",
+                                "description": "Input .docx path",
+                                "minLength": 1,
+                            },
                         },
                         "required": ["docx_path"],
                     },
@@ -53,8 +63,16 @@ class DocxAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "docx_path": {"type": "string", "description": "Input .docx path"},
-                            "text": {"type": "string", "description": "Heading text"},
+                            "docx_path": {
+                                "type": "string",
+                                "description": "Input .docx path",
+                                "minLength": 1,
+                            },
+                            "text": {
+                                "type": "string",
+                                "description": "Heading text",
+                                "minLength": 1,
+                            },
                             "level": {
                                 "type": "integer",
                                 "description": "Heading level",
@@ -71,8 +89,16 @@ class DocxAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "docx_path": {"type": "string", "description": "Input .docx path"},
-                            "text": {"type": "string", "description": "Paragraph text"},
+                            "docx_path": {
+                                "type": "string",
+                                "description": "Input .docx path",
+                                "minLength": 1,
+                            },
+                            "text": {
+                                "type": "string",
+                                "description": "Paragraph text",
+                                "minLength": 1,
+                            },
                         },
                         "required": ["docx_path", "text"],
                     },
@@ -84,11 +110,20 @@ class DocxAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "docx_path": {"type": "string", "description": "Input .docx path"},
+                            "docx_path": {
+                                "type": "string",
+                                "description": "Input .docx path",
+                                "minLength": 1,
+                            },
                             "rows": {
                                 "type": "array",
-                                "items": {"type": "array", "items": {"type": "string"}},
+                                "items": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "minItems": 1,
+                                },
                                 "description": "Table rows as string cells",
+                                "minItems": 1,
                             },
                         },
                         "required": ["docx_path", "rows"],

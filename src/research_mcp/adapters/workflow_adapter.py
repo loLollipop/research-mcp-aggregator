@@ -12,6 +12,8 @@ from research_mcp.external_catalog import get_capability, list_capabilities
 class WorkflowAdapter(BaseAdapter):
     """Compose existing local tools into reusable research workflows."""
 
+    adapter_name = "research_workflows"
+
     def metadata(self) -> AdapterMeta:
         return AdapterMeta(
             name="research_workflows",
@@ -55,6 +57,7 @@ class WorkflowAdapter(BaseAdapter):
                             "key": {
                                 "type": "string",
                                 "description": "Capability key or replaced MCP name",
+                                "minLength": 1,
                             },
                         },
                         "required": ["key"],
@@ -70,7 +73,11 @@ class WorkflowAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "topic": {"type": "string", "description": "Research topic"},
+                            "topic": {
+                                "type": "string",
+                                "description": "Research topic",
+                                "minLength": 1,
+                            },
                             "time_range": {"type": "string", "description": "Optional time range"},
                             "target_venues": {
                                 "type": "array",
@@ -94,6 +101,7 @@ class WorkflowAdapter(BaseAdapter):
                             "research_question": {
                                 "type": "string",
                                 "description": "Study question",
+                                "minLength": 1,
                             },
                             "solver": {
                                 "type": "string",
@@ -124,7 +132,11 @@ class WorkflowAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "title": {"type": "string", "description": "Working paper title"},
+                            "title": {
+                                "type": "string",
+                                "description": "Working paper title",
+                                "minLength": 1,
+                            },
                             "claims": {
                                 "type": "array",
                                 "items": {"type": "string"},

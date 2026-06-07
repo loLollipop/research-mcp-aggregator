@@ -24,13 +24,28 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e . pytest pytest-asyncio ruff
+          python -m pip install -e . pytest pytest-asyncio ruff mypy build
 
       - name: Run lint
         run: ruff check .
+
+      - name: Run scoped type check
+        run: python -m mypy src/research_mcp/__init__.py src/research_mcp/external_catalog.py src/research_mcp/mcp_bridge.py
 
       - name: Vendor PFC documentation source
         run: python scripts/vendor_external_mcps.py pfc-mcp
 
       - name: Run tests
         run: pytest tests/ -v
+
+      - name: Build package
+        run: python -m build
+
+      - name: Smoke test wheel install
+        run: |
+          python -m venv .venv-smoke
+          . .venv-smoke/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          python -c "import research_mcp; print(research_mcp.__version__)"
+          python -c "import importlib.metadata as m; eps = [ep for ep in m.entry_points(group='console_scripts') if ep.name == 'research-mcp']; assert eps and eps[0].value == 'research_mcp.server:main'"
