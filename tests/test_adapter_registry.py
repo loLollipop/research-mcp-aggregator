@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 import research_mcp.adapters as adapter_registry
-from research_mcp.adapters import AdapterMeta, BaseAdapter
+from research_mcp.adapters import AdapterMeta, BaseAdapter, ToolSpec
 from research_mcp.server import ResearchMCPServer
 
 
@@ -55,6 +55,54 @@ class LegacyNamedAdapter(BaseAdapter):
         pass
 
 
+class FirstDuplicateToolAdapter(BaseAdapter):
+    adapter_name = "first_duplicate_tool"
+
+    def metadata(self) -> AdapterMeta:
+        return AdapterMeta(
+            name=self.adapter_name,
+            description="First duplicate tool adapter.",
+            tools=[
+                ToolSpec(
+                    name="duplicate_beta_tool",
+                    description="First duplicate beta tool.",
+                    input_schema={"type": "object", "properties": {}},
+                    handler=self.tool,
+                )
+            ],
+        )
+
+    async def initialize(self, config: dict[str, Any] | None = None) -> None:
+        pass
+
+    def tool(self) -> dict[str, str]:
+        return {"source": "first"}
+
+
+class SecondDuplicateToolAdapter(BaseAdapter):
+    adapter_name = "second_duplicate_tool"
+
+    def metadata(self) -> AdapterMeta:
+        return AdapterMeta(
+            name=self.adapter_name,
+            description="Second duplicate tool adapter.",
+            tools=[
+                ToolSpec(
+                    name="duplicate_beta_tool",
+                    description="Second duplicate beta tool.",
+                    input_schema={"type": "object", "properties": {}},
+                    handler=self.tool,
+                )
+            ],
+        )
+
+    async def initialize(self, config: dict[str, Any] | None = None) -> None:
+        pass
+
+    def tool(self) -> dict[str, str]:
+        return {"source": "second"}
+
+
 def test_discover_adapters_uses_adapter_name_without_instantiation(monkeypatch):
     adapter_registry.discover_adapters()
     monkeypatch.setattr(adapter_registry, "_ADAPTERS", {})
@@ -91,3 +139,28 @@ def test_discover_adapters_keeps_legacy_metadata_fallback(monkeypatch):
 
     assert LegacyNamedAdapter.init_count == 1
     assert adapter_registry.get_adapter_classes() == {"legacy_named": LegacyNamedAdapter}
+
+
+@pytest.mark.asyncio
+async def test_server_rejects_duplicate_tool_registration(monkeypatch):
+    adapter_registry.discover_adapters()
+    monkeypatch.setattr(
+        adapter_registry,
+        "_ADAPTERS",
+        {
+            "first_duplicate_tool": FirstDuplicateToolAdapter,
+            "second_duplicate_tool": SecondDuplicateToolAdapter,
+        },
+    )
+    monkeypatch.setattr(adapter_registry, "_PENDING", [])
+    server = ResearchMCPServer()
+
+    await server.initialize({})
+    try:
+        assert "first_duplicate_tool" in server._adapters
+        assert "second_duplicate_tool" not in server._adapters
+        assert set(server._tools) == {"duplicate_beta_tool"}
+        _spec, adapter = server._tools["duplicate_beta_tool"]
+        assert isinstance(adapter, FirstDuplicateToolAdapter)
+    finally:
+        await server.shutdown()

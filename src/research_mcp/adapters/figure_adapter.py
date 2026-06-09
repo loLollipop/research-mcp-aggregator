@@ -12,6 +12,8 @@ from typing import Any
 
 from research_mcp.adapters import AdapterMeta, BaseAdapter, ToolSpec, register_adapter
 
+MAX_PLOT_POINTS = 100000
+
 
 @register_adapter
 class FigureAdapter(BaseAdapter):
@@ -30,8 +32,18 @@ class FigureAdapter(BaseAdapter):
                     input_schema={
                         "type": "object",
                         "properties": {
-                            "x": {"type": "array", "items": {"type": "number"}, "minItems": 1},
-                            "y": {"type": "array", "items": {"type": "number"}, "minItems": 1},
+                            "x": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 1,
+                                "maxItems": MAX_PLOT_POINTS,
+                            },
+                            "y": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 1,
+                                "maxItems": MAX_PLOT_POINTS,
+                            },
                             "output_path": {
                                 "type": "string",
                                 "description": "Output file path (.svg/.png/.pdf)",
@@ -107,6 +119,8 @@ class FigureAdapter(BaseAdapter):
     ) -> dict[str, Any]:
         if len(x) != len(y):
             raise ValueError("x and y must have the same length")
+        if len(x) > MAX_PLOT_POINTS:
+            raise ValueError(f"plot_xy supports at most {MAX_PLOT_POINTS} points")
         output = Path(output_path).expanduser().resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
         self._plot(x, y, output, title, xlabel, ylabel, kind)

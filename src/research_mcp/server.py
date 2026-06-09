@@ -40,6 +40,7 @@ class ResearchMCPServer:
         self.server = Server("research-mcp")
         self._adapters: dict[str, BaseAdapter] = {}
         self._tools: dict[str, tuple[ToolSpec, BaseAdapter]] = {}
+        self._schema_validators: dict[str, Any] = {}
         self._setup_handlers()
 
     def _setup_handlers(self) -> None:
@@ -101,10 +102,13 @@ class ResearchMCPServer:
             )
 
     def _validate_arguments(self, spec: ToolSpec, arguments: dict[str, Any]) -> None:
-        schema = self._strict_object_schema(spec.input_schema or {"type": "object"})
-        validator_cls = validator_for(schema)
-        validator_cls.check_schema(schema)
-        validator = validator_cls(schema)
+        validator = self._schema_validators.get(spec.name)
+        if validator is None:
+            schema = self._strict_object_schema(spec.input_schema or {"type": "object"})
+            validator_cls = validator_for(schema)
+            validator_cls.check_schema(schema)
+            validator = validator_cls(schema)
+            self._schema_validators[spec.name] = validator
         validator.validate(arguments)
 
     def _strict_object_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
@@ -133,6 +137,15 @@ class ResearchMCPServer:
             try:
                 await adapter.initialize(adapter_config)
                 meta = adapter.metadata()
+                duplicate_tool_names = sorted(
+                    tool_spec.name for tool_spec in meta.tools if tool_spec.name in self._tools
+                )
+                if duplicate_tool_names:
+                    raise ValueError(
+                        "Duplicate MCP tool name(s) from adapter "
+                        f"'{name}': {', '.join(duplicate_tool_names)}"
+                    )
+
                 self._adapters[name] = adapter
                 for tool_spec in meta.tools:
                     self._tools[tool_spec.name] = (tool_spec, adapter)

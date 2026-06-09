@@ -141,3 +141,28 @@ def test_strict_object_schema_advertises_unknown_argument_rejection():
 
     assert strict_schema["additionalProperties"] is False
     assert "additionalProperties" not in schema
+
+
+def test_validate_arguments_reuses_cached_schema_validator():
+    server = ResearchMCPServer()
+
+    def handler(required: str) -> dict[str, str]:
+        return {"required": required}
+
+    spec = ToolSpec(
+        name="cached_schema_tool",
+        description="Uses cached schema validation.",
+        input_schema={
+            "type": "object",
+            "properties": {"required": {"type": "string"}},
+            "required": ["required"],
+        },
+        handler=handler,
+    )
+
+    server._validate_arguments(spec, {"required": "first"})
+    cached_validator = server._schema_validators[spec.name]
+    server._validate_arguments(spec, {"required": "second"})
+
+    assert server._schema_validators[spec.name] is cached_validator
+    assert set(server._schema_validators) == {spec.name}

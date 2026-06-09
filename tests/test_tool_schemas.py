@@ -29,6 +29,15 @@ def _integer_property_schemas(server: ResearchMCPServer) -> list[tuple[str, str,
     return schemas
 
 
+def _numeric_property_schemas(server: ResearchMCPServer) -> list[tuple[str, str, dict[str, Any]]]:
+    schemas: list[tuple[str, str, dict[str, Any]]] = []
+    for spec in _all_tool_specs(server):
+        for property_name, property_schema in spec.input_schema.get("properties", {}).items():
+            if property_schema.get("type") in {"integer", "number"}:
+                schemas.append((spec.name, property_name, property_schema))
+    return schemas
+
+
 def _property_schemas(server: ResearchMCPServer) -> list[tuple[str, str, dict[str, Any], bool]]:
     schemas: list[tuple[str, str, dict[str, Any], bool]] = []
     for spec in _all_tool_specs(server):
@@ -120,7 +129,7 @@ async def test_no_arg_tools_reject_unknown_arguments_at_validation_boundary():
 
 
 @pytest.mark.asyncio
-async def test_common_integer_controls_have_lower_bounds():
+async def test_common_numeric_controls_have_lower_and_upper_bounds():
     server = ResearchMCPServer()
     await server.initialize({})
     try:
@@ -128,19 +137,26 @@ async def test_common_integer_controls_have_lower_bounds():
             "limit",
             "max_results",
             "timeout_seconds",
+            "wait_seconds",
             "port",
             "processors",
             "processor_count",
             "preview_chars",
             "skip_newest",
         }
-        missing = [
+        missing_minimum = [
             f"{tool_name}.{property_name}"
-            for tool_name, property_name, property_schema in _integer_property_schemas(server)
+            for tool_name, property_name, property_schema in _numeric_property_schemas(server)
             if property_name in bounded_names and "minimum" not in property_schema
         ]
+        missing_maximum = [
+            f"{tool_name}.{property_name}"
+            for tool_name, property_name, property_schema in _numeric_property_schemas(server)
+            if property_name in bounded_names and "maximum" not in property_schema
+        ]
 
-        assert missing == []
+        assert missing_minimum == []
+        assert missing_maximum == []
     finally:
         await server.shutdown()
 
@@ -192,6 +208,25 @@ async def test_required_array_fields_reject_empty_values():
             if is_required
             and property_schema.get("type") == "array"
             and "minItems" not in property_schema
+        ]
+
+        assert missing == []
+    finally:
+        await server.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_common_large_array_inputs_have_upper_bounds():
+    server = ResearchMCPServer()
+    await server.initialize({})
+    try:
+        bounded_array_names = {"x", "y", "commands", "parameters"}
+        missing = [
+            f"{tool_name}.{property_name}"
+            for tool_name, property_name, property_schema, _is_required in _property_schemas(server)
+            if property_name in bounded_array_names
+            and property_schema.get("type") == "array"
+            and "maxItems" not in property_schema
         ]
 
         assert missing == []

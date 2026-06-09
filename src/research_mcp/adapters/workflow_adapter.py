@@ -112,6 +112,7 @@ class WorkflowAdapter(BaseAdapter):
                                 "type": "array",
                                 "items": {"type": "string"},
                                 "description": "Control variables or sweep parameters",
+                                "maxItems": 100,
                             },
                             "observables": {
                                 "type": "array",

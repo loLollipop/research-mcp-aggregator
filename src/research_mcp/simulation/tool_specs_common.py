@@ -31,6 +31,7 @@ def build_common_tools(adapter: Any) -> list[ToolSpec]:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "Parameter names to sweep",
+                        "maxItems": 100,
                     },
                 },
             },

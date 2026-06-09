@@ -66,6 +66,7 @@ class LatexAdapter(BaseAdapter):
                                 "type": "integer",
                                 "description": "Timeout seconds",
                                 "minimum": 1,
+                                "maximum": 3600,
                             },
                         },
                         "required": ["main_tex"],
