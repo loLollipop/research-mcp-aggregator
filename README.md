@@ -1,12 +1,24 @@
+<div align="center">
+
 # Engineering Research MCP
 
-> A self-contained Model Context Protocol (MCP) server for engineering research workflows: literature discovery, Zotero management, COMSOL/PFC/Fluent orchestration, result parsing, figure generation, LaTeX/docx assets, and manuscript planning in one local server.
+**One local MCP server for engineering research automation.**
 
-**Status:** `v0.1.0` public beta.
+Literature discovery, Zotero management, MinerU PDF extraction, COMSOL/PFC/Fluent orchestration, result parsing, figure generation, LaTeX/docx assets, and manuscript planning in one local server.
 
-Core file utilities, public scholarly API integrations, Zotero metadata workflows, plotting, BibTeX, LaTeX, docx, and exported-result parsers are ready for early users. Live COMSOL, Fluent, and PFC control remains experimental and depends on local installations, licenses, optional Python packages, and machine-specific process state.
+[简体中文](#中文说明) | **English**
 
-Languages: **English** | [中文](#中文说明)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/loLollipop/research-mcp-aggregator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/loLollipop/research-mcp-aggregator/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/badge/release-v0.1.0-blue.svg)](https://github.com/loLollipop/research-mcp-aggregator/releases)
+[![Python](https://img.shields.io/badge/python-3.10--3.12-3776AB.svg)](pyproject.toml)
+[![MCP](https://img.shields.io/badge/MCP-research--mcp-purple.svg)](https://modelcontextprotocol.io/)
+[![Stars](https://img.shields.io/github/stars/loLollipop/research-mcp-aggregator?style=social)](https://github.com/loLollipop/research-mcp-aggregator/stargazers)
+[![Forks](https://img.shields.io/github/forks/loLollipop/research-mcp-aggregator?style=social)](https://github.com/loLollipop/research-mcp-aggregator/forks)
+
+**Public beta:** stable local utilities and public API-backed workflows are ready for early users. Live COMSOL, Fluent, and PFC control remains experimental and depends on local installations, licenses, optional Python packages, and machine-specific process state.
+
+</div>
 
 ---
 
