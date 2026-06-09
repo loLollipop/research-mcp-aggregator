@@ -33,8 +33,10 @@ async def test_literature_review_plan_uses_existing_literature_and_zotero_tools(
     assert result["topic"] == "laser waterjet rock breaking"
     stage_tools = {tool for stage in result["stages"] for tool in stage["tools"]}
     assert "arxiv_search" in stage_tools
+    assert "pdf_extract_mineru" in stage_tools
     assert "zotero_add_by_doi" in stage_tools
     assert "format_bibtex" in stage_tools
+    assert any("MinerU" in service for service in result["required_services"])
 
 
 @pytest.mark.asyncio
@@ -67,6 +69,7 @@ async def test_paper_asset_pack_uses_format_specific_submission_tools():
     )
 
     stage_tools = {stage["stage"]: stage["tools"] for stage in result["stages"]}
+    assert "pdf_extract_mineru" in stage_tools["evidence_map"]
     assert "docx_read" in stage_tools["submission_readiness"]
     assert "latex_validate_project" not in stage_tools["submission_readiness"]
     assert "python-docx" in result["required_services"]

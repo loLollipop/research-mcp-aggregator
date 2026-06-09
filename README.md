@@ -28,7 +28,7 @@ Engineering researchers rarely work in one tool. A typical study may require:
 ## Key features
 
 - **One server, many research tasks**: no need to configure separate MCP servers for arXiv, Zotero, COMSOL, Fluent, PFC, LaTeX, docx, or plotting.
-- **Literature workflow tools**: arXiv, Semantic Scholar, OpenAlex, citation planning, and Zotero Web API integration.
+- **Literature workflow tools**: arXiv, Semantic Scholar, OpenAlex, MinerU PDF parsing, citation planning, and Zotero Web API integration.
 - **Engineering simulation workflows**: planning, file inspection, CLI fallbacks, COMSOL MPh sessions, Fluent/PyFluent sessions, PFC bridge execution, and exported table parsing.
 - **PFC documentation tools**: command and Python API browsing/search through vendored `pfc-mcp` resources when available.
 - **Figure and manuscript assets**: Matplotlib plots, BibTeX helpers, LaTeX compilation, Word/docx creation, and Nature-style manuscript/figure planning.
@@ -58,6 +58,7 @@ Naming note: the Python package and console command are `research-mcp`. The GitH
 The server uses local adapters:
 
 - literature search calls public APIs such as arXiv, Semantic Scholar, and OpenAlex;
+- PDF ingestion calls the MinerU API and writes structured markdown/page-text artifacts;
 - Zotero integration uses Zotero Web API semantics;
 - COMSOL uses an internal MPh backend with a command-line batch fallback;
 - Fluent uses an internal PyFluent backend with a command-line journal fallback;
@@ -95,6 +96,7 @@ Optional extras:
 | Extra | Enables | Notes |
 | --- | --- | --- |
 | `arxiv` | arXiv client support | Semantic Scholar, OpenAlex, and Zotero use the base HTTP dependency stack |
+| `pdf` | MinerU API-backed PDF parsing | Empty compatibility extra; HTTP dependencies are in the base install |
 | `comsol` | COMSOL MPh backend | Requires local COMSOL installation and license |
 | `fluent` | PyFluent backend | Requires local Ansys Fluent installation and license |
 | `pfc` | PFC bridge WebSocket client | Preferred PFC extra name |
@@ -146,6 +148,7 @@ Add only the environment variables needed for the workflows you use:
         "FLUENT_CMD": "fluent",
         "PFC_CMD": "pfc",
         "LATEX_CMD": "latexmk",
+        "MINERU_API_TOKEN": "your-mineru-token",
         "ZOTERO_API_KEY": "your-zotero-key",
         "ZOTERO_LIBRARY_ID": "your-library-id",
         "ZOTERO_LIBRARY_TYPE": "user"
@@ -170,6 +173,7 @@ Development-from-source configuration:
         "FLUENT_CMD": "fluent",
         "PFC_CMD": "pfc",
         "LATEX_CMD": "latexmk",
+        "MINERU_API_TOKEN": "your-mineru-token",
         "ZOTERO_API_KEY": "your-zotero-key",
         "ZOTERO_LIBRARY_ID": "your-library-id",
         "ZOTERO_LIBRARY_TYPE": "user"
@@ -206,6 +210,7 @@ The `research_*` tools are side-effect-free orchestration helpers. They do not d
 | ArXiv | `arxiv_search`, `arxiv_get_paper` | Search preprints and fetch paper metadata |
 | Semantic Scholar | `s2_search`, `s2_get_paper`, `s2_get_citations`, `s2_get_references` | Search papers and citation/reference networks |
 | OpenAlex | `openalex_search_works`, `openalex_get_work`, `openalex_get_author` | Open scholarly search, work details, and author metadata |
+| PDF / MinerU | `pdf_check_config`, `pdf_extract_mineru` | Parse local research PDFs into markdown, page text, headings, tables, formulas, and figure captions |
 | Zotero | `zotero_status`, `zotero_search_items`, `zotero_get_item`, `zotero_create_collection`, `zotero_add_by_doi`, `zotero_update_item_tags` | Manage literature records and tags through Zotero Web API |
 | Simulation | `simulation_check_config`, `simulation_workflow_template`, `comsol_*`, `fluent_*`, `pfc_*` | Plan, run, inspect, parse, and bridge-connect COMSOL, Fluent, and PFC workflows |
 | PFC docs | `pfc_docs_status`, `pfc_browse_commands`, `pfc_query_command`, `pfc_browse_python_api`, `pfc_query_python_api` | Browse/search PFC command and Python API docs when vendored resources are available |
@@ -220,6 +225,7 @@ The `research_*` tools are side-effect-free orchestration helpers. They do not d
 | --- | --- | --- |
 | `research_*`, `external_mcp_*`, `nature_*` planners | No direct external side effects; return structured plans | Base install |
 | arXiv / Semantic Scholar / OpenAlex | Network requests | Base HTTP dependencies; `.[arxiv]` for the arXiv client package |
+| PDF / MinerU | Uploads local PDFs to MinerU, downloads result archives, and writes extraction artifacts | MinerU API token through `MINERU_API_TOKEN` or per-tool `api_token` |
 | Zotero | Reads or writes Zotero library records depending on the tool | Zotero API key, library ID, and library type |
 | Figure | Writes SVG/PNG/PDF files | Base install |
 | LaTeX | Reads/writes project files and invokes a local TeX command | Local `latexmk` or `pdflatex` |
@@ -335,6 +341,22 @@ pfc_mcp_bridge.start()
 The default bridge URL is `ws://localhost:9001`; override it with `PFC_MCP_BRIDGE_URL` if needed.
 
 Important boundary: a bridge started in a PFC console process controls that console process, not an already-open GUI process. For live GUI visualization, the bridge must be started inside the GUI process itself.
+
+## PDF / MinerU configuration
+
+Set a MinerU API token when you want `pdf_extract_mineru` to parse local PDFs:
+
+```bash
+export MINERU_API_TOKEN="..."
+```
+
+Then use:
+
+- `pdf_check_config` to verify whether a token is configured without exposing it;
+- `pdf_extract_mineru` to upload a local PDF to MinerU, download the result archive, and write structured artifacts under `outputs/mineru/<paper>/`;
+- optional `sync_workspace=true` to refresh `outputs/pdf_pages/page_*.txt` and `paper_sections_extract.txt` for downstream paper-reading workflows.
+
+Use `ocr=true` for scanned PDFs and `page_ranges` such as `"8-19"` when only part of a paper is relevant.
 
 ---
 
@@ -499,7 +521,7 @@ MIT. Commercial solvers such as COMSOL, ANSYS Fluent, and PFC are not included a
 ## 核心特性
 
 - **一个 server 覆盖多个科研环节**：不需要分别配置 arXiv、Zotero、COMSOL、Fluent、PFC、LaTeX、docx、绘图等 MCP server。
-- **文献工作流**：支持 arXiv、Semantic Scholar、OpenAlex、Zotero Web API，以及文献综述规划。
+- **文献工作流**：支持 arXiv、Semantic Scholar、OpenAlex、MinerU PDF 解析、Zotero Web API，以及文献综述规划。
 - **工程仿真工作流**：支持仿真规划、文件检查、CLI fallback、COMSOL MPh、Fluent/PyFluent、PFC bridge 和导出数据解析。
 - **PFC 文档工具**：在 vendored `pfc-mcp` 资源存在时，可浏览/搜索 PFC 命令和 Python API 文档。
 - **图表与论文资产**：支持 Matplotlib 图、BibTeX 工具、LaTeX 编译、Word/docx 创建，以及 Nature 风格论文和图表规划。
@@ -529,6 +551,7 @@ MIT. Commercial solvers such as COMSOL, ANSYS Fluent, and PFC are not included a
 内部通过本地 adapter 提供能力：
 
 - 文献检索直接调用 arXiv、Semantic Scholar、OpenAlex 等公共 API；
+- PDF ingestion 调用 MinerU API，并写出结构化 markdown/page-text artifacts；
 - Zotero 使用 Zotero Web API 语义；
 - COMSOL 使用内部 MPh backend，并保留命令行 batch fallback；
 - Fluent 使用内部 PyFluent backend，并保留 journal 命令行 fallback；
@@ -564,6 +587,7 @@ uv pip install -e ".[all]"
 | Extra | 启用能力 | 说明 |
 | --- | --- | --- |
 | `arxiv` | arXiv client 支持 | Semantic Scholar、OpenAlex、Zotero 使用基础 HTTP 依赖栈 |
+| `pdf` | MinerU API-backed PDF parsing | 空的兼容 extra；HTTP 依赖已经在基础安装中 |
 | `comsol` | COMSOL MPh backend | 需要本机 COMSOL 安装和许可证 |
 | `fluent` | PyFluent backend | 需要本机 Ansys Fluent 安装和许可证 |
 | `pfc` | PFC bridge WebSocket client | 推荐使用的 PFC extra 名称 |
@@ -615,6 +639,7 @@ python -m research_mcp.server
         "FLUENT_CMD": "fluent",
         "PFC_CMD": "pfc",
         "LATEX_CMD": "latexmk",
+        "MINERU_API_TOKEN": "your-mineru-token",
         "ZOTERO_API_KEY": "your-zotero-key",
         "ZOTERO_LIBRARY_ID": "your-library-id",
         "ZOTERO_LIBRARY_TYPE": "user"
@@ -639,6 +664,7 @@ python -m research_mcp.server
         "FLUENT_CMD": "fluent",
         "PFC_CMD": "pfc",
         "LATEX_CMD": "latexmk",
+        "MINERU_API_TOKEN": "your-mineru-token",
         "ZOTERO_API_KEY": "your-zotero-key",
         "ZOTERO_LIBRARY_ID": "your-library-id",
         "ZOTERO_LIBRARY_TYPE": "user"
@@ -675,6 +701,7 @@ python -m research_mcp.server
 | ArXiv | `arxiv_search`, `arxiv_get_paper` | 搜索预印本和获取论文元数据 |
 | Semantic Scholar | `s2_search`, `s2_get_paper`, `s2_get_citations`, `s2_get_references` | 搜索论文和引用/参考文献网络 |
 | OpenAlex | `openalex_search_works`, `openalex_get_work`, `openalex_get_author` | 开放学术搜索、作品详情和作者元数据 |
+| PDF / MinerU | `pdf_check_config`, `pdf_extract_mineru` | 将本地研究 PDF 解析为 markdown、分页文本、标题索引、表格、公式和图注 |
 | Zotero | `zotero_status`, `zotero_search_items`, `zotero_get_item`, `zotero_create_collection`, `zotero_add_by_doi`, `zotero_update_item_tags` | 通过 Zotero Web API 管理文献记录和标签 |
 | Simulation | `simulation_check_config`, `simulation_workflow_template`, `comsol_*`, `fluent_*`, `pfc_*` | 规划、运行、检查、解析和 bridge 连接 COMSOL / Fluent / PFC 工作流 |
 | PFC docs | `pfc_docs_status`, `pfc_browse_commands`, `pfc_query_command`, `pfc_browse_python_api`, `pfc_query_python_api` | 在 vendored 资源存在时浏览/搜索 PFC 命令和 Python API 文档 |
@@ -689,6 +716,7 @@ python -m research_mcp.server
 | --- | --- | --- |
 | `research_*`、`external_mcp_*`、`nature_*` 规划工具 | 无直接外部副作用；返回结构化计划 | 基础安装 |
 | arXiv / Semantic Scholar / OpenAlex | 网络请求 | 基础 HTTP 依赖；arXiv client 包可用 `.[arxiv]` 安装 |
+| PDF / MinerU | 上传本地 PDF 到 MinerU、下载结果压缩包并写出解析 artifacts | 通过 `MINERU_API_TOKEN` 或 tool 参数 `api_token` 提供 MinerU API token |
 | Zotero | 根据工具不同，可能读取或写入 Zotero library | Zotero API key、library ID、library type |
 | Figure | 写入 SVG/PNG/PDF 文件 | 基础安装 |
 | LaTeX | 读写项目文件，并调用本地 TeX 命令 | 本地 `latexmk` 或 `pdflatex` |
@@ -781,6 +809,24 @@ pfc_mcp_bridge.start()
 默认 bridge URL 是 `ws://localhost:9001`；如有需要，可用 `PFC_MCP_BRIDGE_URL` 覆盖。
 
 重要边界：在 PFC console 进程中启动的 bridge 只能控制该 console 进程，不能控制已经打开的 GUI 进程。如果需要 GUI 实时可视化，bridge 必须在 GUI 进程内部启动。
+
+---
+
+## PDF / MinerU 配置
+
+当需要用 `pdf_extract_mineru` 解析本地 PDF 时，设置 MinerU API token：
+
+```bash
+export MINERU_API_TOKEN="..."
+```
+
+常用工具：
+
+- `pdf_check_config`：检查 token 是否已配置，但不会暴露 token 明文；
+- `pdf_extract_mineru`：上传本地 PDF 到 MinerU，下载结果压缩包，并在 `outputs/mineru/<paper>/` 下写出结构化 artifacts；
+- 可选 `sync_workspace=true`：刷新 `outputs/pdf_pages/page_*.txt` 和 `paper_sections_extract.txt`，供后续论文阅读工作流使用。
+
+扫描版 PDF 可使用 `ocr=true`；只解析部分页面时可传入类似 `"8-19"` 的 `page_ranges`。
 
 ---
 

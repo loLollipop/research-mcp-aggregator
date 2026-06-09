@@ -210,6 +210,14 @@ class WorkflowAdapter(BaseAdapter):
                     "deliverable": "backward/forward citation map and influential works",
                 },
                 {
+                    "stage": "pdf_ingestion",
+                    "tools": ["pdf_extract_mineru"],
+                    "deliverable": (
+                        "structured markdown, page text, headings, tables, formulas, "
+                        "and figure captions for local PDFs"
+                    ),
+                },
+                {
                     "stage": "library_management",
                     "tools": [
                         "zotero_search_items",
@@ -224,11 +232,16 @@ class WorkflowAdapter(BaseAdapter):
                     "deliverable": "citation keys, BibTeX records, gap map, and reusable notes",
                 },
             ],
-            "required_services": ["public paper APIs", "Zotero credentials for library writes"],
+            "required_services": [
+                "public paper APIs",
+                "Zotero credentials for library writes",
+                "MinerU API token when parsing local PDFs",
+            ],
             "reproducibility_checks": [
                 "record exact queries and dates",
                 "save screened inclusion/exclusion decisions",
                 "preserve DOI/arXiv/OpenAlex/Semantic Scholar identifiers",
+                "preserve MinerU extraction manifests for PDFs used as evidence",
             ],
         }
 
@@ -315,8 +328,16 @@ class WorkflowAdapter(BaseAdapter):
             "stages": [
                 {
                     "stage": "evidence_map",
-                    "tools": ["zotero_get_item", "format_bibtex", "plot_csv_columns"],
-                    "deliverable": "claim-to-evidence table with figures and references",
+                    "tools": [
+                        "pdf_extract_mineru",
+                        "zotero_get_item",
+                        "format_bibtex",
+                        "plot_csv_columns",
+                    ],
+                    "deliverable": (
+                        "claim-to-evidence table with extracted PDF sections, figures, "
+                        "and references"
+                    ),
                 },
                 {
                     "stage": "manuscript_assets",
@@ -333,6 +354,7 @@ class WorkflowAdapter(BaseAdapter):
             "reproducibility_checks": [
                 "keep source data behind every figure",
                 "store BibTeX beside manuscript source",
+                "store PDF extraction manifests beside manuscript evidence notes",
                 "record compile command and warnings",
             ],
         }

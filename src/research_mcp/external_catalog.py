@@ -204,6 +204,23 @@ INTERNAL_CAPABILITIES: tuple[InternalCapability, ...] = (
         output_types=("paper_metadata", "citation_list", "reference_list"),
     ),
     InternalCapability(
+        key="pdf-mineru",
+        domain="literature/pdf",
+        name="MinerU PDF paper extraction",
+        status="local adapter using the MinerU cloud API",
+        purpose=(
+            "Extract structured markdown, page text, headings, tables, formulas, "
+            "and figure captions from local research-paper PDFs before analysis."
+        ),
+        internal_tools=("pdf_check_config", "pdf_extract_mineru"),
+        replaces=("paper-pdf-reader", "mineru-pdf-skill"),
+        configuration="Set MINERU_API_TOKEN, or pass api_token per tool call.",
+        maturity="stable",
+        dependencies=("MinerU API token", "httpx"),
+        workflow_roles=("literature_ingestion", "paper_reading", "artifact_inspection"),
+        output_types=("markdown", "page_text", "heading_index", "pdf_extract_manifest"),
+    ),
+    InternalCapability(
         key="latex",
         domain="writing/latex",
         name="LaTeX manuscript workflows",

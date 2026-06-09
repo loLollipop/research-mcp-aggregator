@@ -49,10 +49,24 @@ async def test_external_mcp_list_includes_nature_workflow_capability():
 
 
 @pytest.mark.asyncio
+async def test_external_mcp_list_includes_pdf_mineru_capability():
+    adapter = ExternalMCPAdapter()
+    result = await adapter.list_servers("pdf")
+
+    assert result["count"] == 1
+    capability = result["capabilities"][0]
+    assert capability["key"] == "pdf-mineru"
+    assert "pdf_extract_mineru" in capability["internal_tools"]
+    assert "paper-pdf-reader" in capability["replaces"]
+    assert "paper_reading" in capability["workflow_roles"]
+
+
+@pytest.mark.asyncio
 async def test_engineering_workflow_template_uses_internal_tools():
     adapter = ExternalMCPAdapter()
     result = await adapter.workflow_template("laser waterjet rock breaking", "pfc", "paper")
     assert result["topic"] == "laser waterjet rock breaking"
     assert len(result["steps"]) == 6
+    assert "pdf_extract_mineru" in result["steps"][0]["tools"]
     assert any("pfc_run_script" in tool for tool in result["steps"][2]["tools"])
     assert all("MCP" not in tool for step in result["steps"] for tool in step["tools"])

@@ -131,6 +131,7 @@ class ExternalMCPAdapter(BaseAdapter):
                         "FLUENT_CMD": "fluent",
                         "PFC_CMD": "pfc",
                         "LATEX_CMD": "latexmk",
+                        "MINERU_API_TOKEN": "your-mineru-token",
                         "ZOTERO_API_KEY": "your-zotero-key",
                         "ZOTERO_LIBRARY_ID": "your-library-id",
                         "ZOTERO_LIBRARY_TYPE": "user",
@@ -184,8 +185,12 @@ class ExternalMCPAdapter(BaseAdapter):
                         "openalex_search_works",
                         "s2_search",
                         "s2_get_references",
+                        "pdf_extract_mineru",
                     ],
-                    "deliverable": "screened source pool with IDs, mechanisms, methods, and gaps",
+                    "deliverable": (
+                        "screened source pool plus structured PDF extracts for mechanisms, "
+                        "methods, tables, formulas, and gaps"
+                    ),
                 },
                 {
                     "stage": "2_zotero_ingestion",
@@ -235,6 +240,7 @@ class ExternalMCPAdapter(BaseAdapter):
             ],
             "literature": [
                 "arXiv, OpenAlex, and Semantic Scholar use direct public APIs from local adapters.",
+                "MinerU PDF extraction parses local papers into markdown and page text artifacts.",
                 "Zotero operations use the local Zotero Web API adapter.",
             ],
             "writing_and_figures": [
