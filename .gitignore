@@ -13,3 +13,13 @@ venv/
 .pytest_cache/
 .mypy_cache/
 vendors/external/
+
+# Runtime solver/debug artifacts
+.pfc-mcp/
+.pfc-mcp-bridge/
+logs/
+outputs/
+checkpoints/
+*.log
+guidebug.txt
+UNITS.csv

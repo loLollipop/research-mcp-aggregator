@@ -91,6 +91,12 @@ ToolSpec(
                         "type": "string",
                         "description": "Optional workdir",
                     },
+                    "fluent_path": {
+                        "type": "string",
+                        "description": (
+                            "Optional explicit Fluent executable path for PyFluent launch"
+                        ),
+                    },
                 },
             },
             handler=adapter.fluent_launch_session,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,7 @@ class FluentSessionConfig:
     mode: str = "solver"
     processor_count: int = 1
     working_directory: str = ""
+    fluent_path: str = ""
 
 
 class FluentBackend:
@@ -64,20 +66,50 @@ class FluentBackend:
         if config.processor_count < 1:
             raise ValueError("processor_count must be >= 1")
 
+        launch_parameters = inspect.signature(pyfluent.launch_fluent).parameters
         launch_kwargs: dict[str, Any] = {
             "precision": config.precision,
-            "dimension": config.dimension,
             "mode": config.mode,
         }
-        if config.processor_count > 1:
+        if _launch_has_parameter(launch_parameters, "dimension"):
+            launch_kwargs["dimension"] = 2 if config.dimension == "2d" else 3
+        elif _launch_has_parameter(launch_parameters, "version"):
+            launch_kwargs["version"] = config.dimension
+        if _launch_has_parameter(launch_parameters, "processor_count"):
             launch_kwargs["processor_count"] = config.processor_count
+
+        fluent_root_override: str | None = None
         if config.working_directory:
-            launch_kwargs["cwd"] = str(Path(config.working_directory).expanduser().resolve())
+            working_directory = Path(config.working_directory).expanduser().resolve()
+            if not working_directory.exists() or not working_directory.is_dir():
+                raise FileNotFoundError(f"Working directory not found: {working_directory}")
+            launch_kwargs["cwd"] = str(working_directory)
+        if config.fluent_path:
+            fluent_path = Path(config.fluent_path).expanduser().resolve()
+            if not fluent_path.exists() or not fluent_path.is_file():
+                raise FileNotFoundError(f"Fluent executable not found: {fluent_path}")
+            if _launch_has_parameter(launch_parameters, "fluent_path"):
+                launch_kwargs["fluent_path"] = str(fluent_path)
+            else:
+                fluent_root_override = str(_infer_fluent_root(fluent_path))
 
         try:
-            session = pyfluent.launch_fluent(**launch_kwargs)
+            old_fluent_root = os.environ.get("PYFLUENT_FLUENT_ROOT")
+            if fluent_root_override:
+                os.environ["PYFLUENT_FLUENT_ROOT"] = fluent_root_override
+            try:
+                session = pyfluent.launch_fluent(**launch_kwargs)
+            finally:
+                if fluent_root_override:
+                    if old_fluent_root is None:
+                        os.environ.pop("PYFLUENT_FLUENT_ROOT", None)
+                    else:
+                        os.environ["PYFLUENT_FLUENT_ROOT"] = old_fluent_root
         except Exception as exc:
-            return {"status": "error", "message": str(exc), "launch_kwargs": launch_kwargs}
+            debug_kwargs = dict(launch_kwargs)
+            if fluent_root_override:
+                debug_kwargs["fluent_root"] = fluent_root_override
+            return {"status": "error", "message": str(exc), "launch_kwargs": debug_kwargs}
 
         session_id = uuid4().hex[:8]
         self._sessions[session_id] = session
@@ -165,3 +197,42 @@ class FluentBackend:
         if callable(exit_method):
             exit_method()
         return {"status": "ok", "session_id": session_id, "closed": True}
+
+    def close_all_sessions(self) -> dict[str, Any]:
+        """Close every tracked Fluent session during adapter shutdown."""
+        session_ids = list(self._sessions)
+        closed: list[str] = []
+        errors: dict[str, str] = {}
+        for session_id in session_ids:
+            try:
+                result = self.close_session(session_id)
+                if result.get("closed"):
+                    closed.append(session_id)
+            except Exception as exc:
+                self._sessions.pop(session_id, None)
+                errors[session_id] = str(exc)
+        return {
+            "status": "ok" if not errors else "partial",
+            "closed": closed,
+            "errors": errors,
+        }
+
+
+def _infer_fluent_root(fluent_executable: Path) -> Path:
+    """Infer the Fluent root folder from a Fluent executable path."""
+    if fluent_executable.parent.name.lower() == "win64":
+        ntbin = fluent_executable.parent.parent
+        if ntbin.name.lower() == "ntbin":
+            return ntbin.parent
+    return fluent_executable.parent
+
+
+def _launch_has_parameter(
+    parameters: inspect.Signature.parameters, parameter_name: str
+) -> bool:
+    """Return whether launch_fluent explicitly supports a keyword.
+
+    PyFluent 0.15 exposes ``**kwargs`` but raises for unknown keys at runtime,
+    so only explicitly declared parameters are treated as supported.
+    """
+    return parameter_name in parameters

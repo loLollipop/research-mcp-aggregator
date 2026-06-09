@@ -1,5 +1,7 @@
 """Tests for PFC bridge backend and bridge-exposed tools."""
 
+import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -38,6 +40,77 @@ def test_bridge_client_not_connected_by_default():
     assert client.connected is False
 
 
+@pytest.mark.asyncio
+async def test_bridge_client_cleans_pending_request_on_send_failure():
+    class FailingWebSocket:
+        async def send(self, payload: str) -> None:
+            raise RuntimeError("send failed")
+
+    cfg = PFCBridgeConfig(url="ws://localhost:9001")
+    client = PFCBridgeClient(cfg)
+    client._websocket = FailingWebSocket()
+
+    with pytest.raises(RuntimeError, match="send failed"):
+        await client._send_request({"type": "ping", "request_id": "req1"}, timeout_s=0.1)
+
+    assert client._pending_requests == {}
+
+
+@pytest.mark.asyncio
+async def test_bridge_client_accepts_legacy_pong_without_request_id():
+    class SingleMessageWebSocket:
+        def __init__(self, payload: dict) -> None:
+            self.payload = payload
+            self.sent = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.sent:
+                raise StopAsyncIteration
+            self.sent = True
+            return json.dumps(self.payload)
+
+    cfg = PFCBridgeConfig(url="ws://localhost:9001")
+    client = PFCBridgeClient(cfg)
+    future = asyncio.get_running_loop().create_future()
+    client._pending_requests["req1"] = future
+    client._websocket = SingleMessageWebSocket({"type": "pong", "timestamp": "now"})
+
+    await client._receive_loop()
+
+    assert future.done()
+    assert future.result() == {"type": "pong", "timestamp": "now"}
+    assert client._pending_requests == {}
+
+
+@pytest.mark.asyncio
+async def test_bridge_client_execute_task_uses_pfc_task_wire_type():
+    cfg = PFCBridgeConfig(url="ws://localhost:9001")
+    client = PFCBridgeClient(cfg)
+    client._request_with_retry = AsyncMock(return_value={"status": "pending"})
+
+    result = await client.execute_task(
+        script_path="D:/work/task.py",
+        description="demo task",
+        task_id="abc123",
+    )
+
+    assert result["status"] == "pending"
+    client._request_with_retry.assert_awaited_once()
+    message = client._request_with_retry.await_args.args[0]
+    assert message == {
+        "type": "pfc_task",
+        "task_id": "abc123",
+        "script_path": "D:/work/task.py",
+        "description": "demo task",
+        "source": "research-mcp",
+    }
+    assert client._request_with_retry.await_args.kwargs["operation_name"] == "pfc_task"
+    assert client._request_with_retry.await_args.kwargs["timeout_s"] == 10.0
+
+
 # --- Adapter integration tests ---
 
 
@@ -72,7 +145,15 @@ async def test_pfc_bridge_status_with_custom_config():
 @pytest.mark.asyncio
 async def test_pfc_execute_code_bridge_unavailable():
     adapter = SimulationAdapter()
-    await adapter.initialize({})
+    await adapter.initialize(
+        {
+            "pfc_bridge": {
+                "url": "ws://127.0.0.1:1",
+                "max_retries": 0,
+                "request_timeout_s": 1.0,
+            }
+        }
+    )
     result = await adapter.pfc_execute_code("print('hello')")
     assert result["status"] == "bridge_unavailable"
     assert "bridge_url" in result
@@ -240,6 +321,25 @@ async def test_pfc_check_task_status_not_found():
 
 
 @pytest.mark.asyncio
+async def test_pfc_check_task_status_unlistens_on_bridge_error():
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+
+    mock_client = MagicMock()
+    mock_client.connected = True
+    mock_client.listen_for_task = MagicMock()
+    mock_client.unlisten_task = MagicMock()
+    mock_client.check_task_status = AsyncMock(side_effect=RuntimeError("boom"))
+    adapter._bridge_client = mock_client
+
+    result = await adapter.pfc_check_task_status("abc123", wait_seconds=0.1)
+
+    assert result["status"] == "bridge_unavailable"
+    mock_client.listen_for_task.assert_called_once_with("abc123")
+    mock_client.unlisten_task.assert_called_once_with("abc123")
+
+
+@pytest.mark.asyncio
 async def test_pfc_list_tasks_with_mock_bridge():
     adapter = SimulationAdapter()
     await adapter.initialize({})
@@ -295,6 +395,29 @@ async def test_pfc_interrupt_task_failed_by_bridge():
     result = await adapter.pfc_interrupt_task("missing")
     assert result["status"] == "interrupt_failed"
     assert result["task_status"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_pfc_interrupt_task_preserves_bridge_task_status():
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+
+    mock_client = MagicMock()
+    mock_client.connected = True
+    mock_client.interrupt_task = AsyncMock(
+        return_value={
+            "status": "error",
+            "message": "Task already in terminal state",
+            "data": {"status": "completed", "interrupt_requested": False},
+        }
+    )
+    adapter._bridge_client = mock_client
+
+    result = await adapter.pfc_interrupt_task("done1")
+
+    assert result["status"] == "interrupt_failed"
+    assert result["task_status"] == "completed"
+    assert result["interrupt_requested"] is False
 
 
 # --- Tool registration test ---

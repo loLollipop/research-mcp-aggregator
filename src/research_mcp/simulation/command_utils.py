@@ -23,8 +23,12 @@ def validate_executable_command(command: str) -> str:
         raise ValueError("Executable command cannot be empty")
     if any(token in command for token in SHELL_CONTROL_CHARS):
         raise ValueError("Executable command cannot contain shell control characters")
+    stripped = command.strip()
+    path_candidate = Path(stripped.strip('"')).expanduser()
+    if path_candidate.exists() and path_candidate.is_file():
+        return str(path_candidate.resolve())
     try:
-        parts = shlex.split(command)
+        parts = shlex.split(stripped)
     except ValueError as exc:
         raise ValueError("Executable command is not a valid command string") from exc
     if len(parts) != 1:

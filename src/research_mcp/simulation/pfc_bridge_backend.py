@@ -130,9 +130,11 @@ class PFCBridgeClient:
                         event.set()
                     continue
 
-                if msg_type not in {"result", "execute_code_result"}:
+                if msg_type not in {"result", "execute_code_result", "error", "pong"}:
                     continue
                 request_id = payload.get("request_id")
+                if not request_id and msg_type == "pong" and len(self._pending_requests) == 1:
+                    request_id = next(iter(self._pending_requests))
                 if not request_id:
                     continue
                 future = self._pending_requests.pop(request_id, None)
@@ -165,6 +167,9 @@ class PFCBridgeClient:
         except asyncio.TimeoutError as exc:
             self._pending_requests.pop(request_id, None)
             raise TimeoutError(f"Bridge request timed out after {timeout_s:.1f}s") from exc
+        except Exception:
+            self._pending_requests.pop(request_id, None)
+            raise
 
     async def _ensure_connected(self) -> None:
         if self.connected:
@@ -212,13 +217,13 @@ class PFCBridgeClient:
     ) -> dict[str, Any]:
         return await self._request_with_retry(
             {
-                "type": "execute_task",
+                "type": "pfc_task",
                 "task_id": task_id,
                 "script_path": script_path,
                 "description": description,
                 "source": "research-mcp",
             },
-            operation_name="execute_task",
+            operation_name="pfc_task",
             timeout_s=10.0,
         )
 

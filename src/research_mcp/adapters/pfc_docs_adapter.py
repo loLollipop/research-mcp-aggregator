@@ -130,8 +130,12 @@ class PFCDocsAdapter(BaseAdapter):
         pass
 
     async def status(self) -> dict[str, Any]:
+        command_docs_available = (COMMAND_DOCS_ROOT / "index.json").exists()
+        python_api_docs_available = (PYTHON_API_DOCS_ROOT / "index.json").exists()
         return {
-            "available": COMMAND_DOCS_ROOT.exists() and PYTHON_API_DOCS_ROOT.exists(),
+            "available": command_docs_available and python_api_docs_available,
+            "command_docs_available": command_docs_available,
+            "python_api_docs_available": python_api_docs_available,
             "command_docs_root": str(COMMAND_DOCS_ROOT),
             "python_api_docs_root": str(PYTHON_API_DOCS_ROOT),
             "source": "vendors/external/pfc-mcp",
@@ -141,6 +145,8 @@ class PFCDocsAdapter(BaseAdapter):
     async def browse_commands(
         self, command: str = "", version: str = DEFAULT_VERSION
     ) -> dict[str, Any]:
+        if not _command_docs_available():
+            return _missing_docs_response("command_docs", COMMAND_DOCS_ROOT)
         index = _load_index()
         categories = index.get("categories", {})
         normalized = command.strip().lower().replace("_", "-")
@@ -202,6 +208,8 @@ class PFCDocsAdapter(BaseAdapter):
     async def query_command(
         self, query: str, limit: int = 10, version: str = DEFAULT_VERSION
     ) -> dict[str, Any]:
+        if not _command_docs_available():
+            return _missing_docs_response("command_docs", COMMAND_DOCS_ROOT)
         terms = [term.lower() for term in query.replace("-", " ").split() if term.strip()]
         matches: list[dict[str, Any]] = []
         for item in _all_command_summaries(version):
@@ -230,6 +238,8 @@ class PFCDocsAdapter(BaseAdapter):
         }
 
     async def browse_python_api(self, api: str = "") -> dict[str, Any]:
+        if not _python_api_docs_available():
+            return _missing_docs_response("python_sdk_docs", PYTHON_API_DOCS_ROOT)
         index = _load_api_index()
         modules = index.get("modules", {})
         objects = index.get("objects", {})
@@ -286,6 +296,8 @@ class PFCDocsAdapter(BaseAdapter):
         }
 
     async def query_python_api(self, query: str, limit: int = 10) -> dict[str, Any]:
+        if not _python_api_docs_available():
+            return _missing_docs_response("python_sdk_docs", PYTHON_API_DOCS_ROOT)
         terms = [term.lower() for term in query.replace(".", " ").replace("_", " ").split() if term]
         matches: list[dict[str, Any]] = []
         for item in _all_api_summaries():
@@ -305,6 +317,24 @@ class PFCDocsAdapter(BaseAdapter):
             "count": min(len(matches), result_limit),
             "matches": matches[:result_limit],
         }
+
+
+def _command_docs_available() -> bool:
+    return (COMMAND_DOCS_ROOT / "index.json").exists()
+
+
+def _python_api_docs_available() -> bool:
+    return (PYTHON_API_DOCS_ROOT / "index.json").exists()
+
+
+def _missing_docs_response(resource: str, root: Path) -> dict[str, Any]:
+    return {
+        "error": "docs_not_vendored",
+        "resource": resource,
+        "root": str(root),
+        "source": "vendors/external/pfc-mcp",
+        "action": "Run scripts/vendor_external_mcps.py pfc-mcp to vendor PFC docs resources.",
+    }
 
 
 @lru_cache(maxsize=1)

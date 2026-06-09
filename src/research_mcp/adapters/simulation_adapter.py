@@ -6,6 +6,7 @@ control surface around their existing command-line/batch interfaces.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -24,6 +25,7 @@ from research_mcp.simulation.command_utils import (
 from research_mcp.simulation.comsol_backend import ComsolBackend, ComsolServerConfig
 from research_mcp.simulation.fluent_backend import FluentBackend, FluentSessionConfig
 from research_mcp.simulation.parsers import (
+    parse_history_table,
     parse_numeric_table,
     parse_residual_table,
     summarize_series,
@@ -90,6 +92,16 @@ class SimulationAdapter(BaseAdapter):
             self._bridge_config = load_bridge_config()
 
     async def shutdown(self) -> None:
+        try:
+            await asyncio.to_thread(self._fluent_backend.close_all_sessions)
+        except Exception:
+            logger.debug("Fluent session cleanup skipped during shutdown")
+
+        try:
+            await asyncio.to_thread(self._comsol_backend.server_disconnect)
+        except Exception:
+            logger.debug("COMSOL disconnect skipped during shutdown")
+
         if self._bridge_client is not None:
             try:
                 await self._bridge_client.disconnect()
@@ -225,11 +237,14 @@ class SimulationAdapter(BaseAdapter):
         filter_text: str = "",
         wait_seconds: float = 1,
     ) -> dict[str, Any]:
+        client: PFCBridgeClient | None = None
+        listener_registered = False
         try:
             client = await self._get_bridge_client()
             terminal_states = {"completed", "failed", "interrupted", "not_found"}
             if wait_seconds > 0:
                 client.listen_for_task(task_id)
+                listener_registered = True
 
             response = await client.check_task_status(
                 task_id=task_id,
@@ -246,10 +261,11 @@ class SimulationAdapter(BaseAdapter):
                     limit=max(1, min(limit, 500)),
                     filter_text=filter_text or None,
                 )
-            else:
-                client.unlisten_task(task_id)
         except Exception as exc:
             return self._build_bridge_error("pfc_check_task_status", exc, task_id=task_id)
+        finally:
+            if listener_registered and client is not None:
+                client.unlisten_task(task_id)
 
         status = response.get("status", "unknown")
         if status == "not_found":
@@ -320,10 +336,12 @@ class SimulationAdapter(BaseAdapter):
                 "message": message or "signal sent",
                 "next_action": f'call pfc_check_task_status(task_id="{task_id}")',
             }
+        data = response.get("data") or {}
         return {
             "status": "interrupt_failed",
             "task_id": task_id,
-            "task_status": status,
+            "task_status": data.get("status", status),
+            "interrupt_requested": data.get("interrupt_requested", False),
             "message": message or "Interrupt request failed",
             "action": "Check task status and bridge logs",
         }
@@ -371,7 +389,7 @@ class SimulationAdapter(BaseAdapter):
     # ------------------------------------------------------------------
 
     async def comsol_check_mph(self) -> dict[str, Any]:
-        return self._comsol_backend.check_mph()
+        return await asyncio.to_thread(self._comsol_backend.check_mph)
 
     async def comsol_server_connect(
         self,
@@ -386,43 +404,44 @@ class SimulationAdapter(BaseAdapter):
             connect_timeout_s=timeout_seconds,
             model_path=model_path,
         )
-        return self._comsol_backend.server_connect(config)
+        return await asyncio.to_thread(self._comsol_backend.server_connect, config)
 
     async def comsol_server_disconnect(self) -> dict[str, Any]:
-        return self._comsol_backend.server_disconnect()
+        return await asyncio.to_thread(self._comsol_backend.server_disconnect)
 
     async def comsol_server_info(self) -> dict[str, Any]:
         return self._comsol_backend.server_info()
 
     async def comsol_model_load(self, model_path: str) -> dict[str, Any]:
-        return self._comsol_backend.model_load(model_path)
+        return await asyncio.to_thread(self._comsol_backend.model_load, model_path)
 
     async def comsol_model_create(self, name: str = "Server Model") -> dict[str, Any]:
-        return self._comsol_backend.model_create(name)
+        return await asyncio.to_thread(self._comsol_backend.model_create, name)
 
     async def comsol_get_parameters(self) -> dict[str, Any]:
-        return self._comsol_backend.get_parameters()
+        return await asyncio.to_thread(self._comsol_backend.get_parameters)
 
     async def comsol_set_parameters(self, parameters: list[dict[str, str]]) -> dict[str, Any]:
-        return self._comsol_backend.set_parameters(parameters)
+        return await asyncio.to_thread(self._comsol_backend.set_parameters, parameters)
 
     async def comsol_solve(self, study_tag: str = "", async_mode: bool = False) -> dict[str, Any]:
         if async_mode:
             return self._comsol_backend.solve_async(study_tag)
-        return self._comsol_backend.solve(study_tag)
+        return await asyncio.to_thread(self._comsol_backend.solve, study_tag)
 
     async def comsol_solve_status(self, job_id: str = "") -> dict[str, Any]:
         return self._comsol_backend.solve_status(job_id)
 
     async def comsol_list_studies(self) -> dict[str, Any]:
-        return self._comsol_backend.list_studies()
+        return await asyncio.to_thread(self._comsol_backend.list_studies)
 
     async def comsol_inspect_file(
         self, file_path: str, preview_chars: int = 1000
     ) -> dict[str, Any]:
-        return self._comsol_backend.inspect_file(
-            file_path=file_path,
-            preview_chars=max(0, min(preview_chars, 10000)),
+        return await asyncio.to_thread(
+            self._comsol_backend.inspect_file,
+            file_path,
+            max(0, min(preview_chars, 10000)),
         )
 
     # ------------------------------------------------------------------
@@ -438,7 +457,11 @@ class SimulationAdapter(BaseAdapter):
         timeout_seconds: int = 0,
     ) -> dict[str, Any]:
         model = require_file(model_file)
-        args = [self.comsol_cmd, "batch", "-inputfile", str(model)]
+        executable_name = os.path.basename(self.comsol_cmd).lower()
+        args = [self.comsol_cmd]
+        if executable_name not in {"comsolbatch", "comsolbatch.exe"}:
+            args.append("batch")
+        args.extend(["-inputfile", str(model)])
         if output_file:
             output = resolve_output_path(
                 output_file,
@@ -478,7 +501,7 @@ class SimulationAdapter(BaseAdapter):
         }
 
     async def fluent_check_pyfluent(self) -> dict[str, Any]:
-        return self._fluent_backend.check_pyfluent()
+        return await asyncio.to_thread(self._fluent_backend.check_pyfluent)
 
     async def fluent_launch_session(
         self,
@@ -486,31 +509,38 @@ class SimulationAdapter(BaseAdapter):
         dimension: str = "3d",
         processor_count: int = 1,
         working_directory: str = "",
+        fluent_path: str = "",
     ) -> dict[str, Any]:
         config = FluentSessionConfig(
             precision=precision,
             dimension=dimension,
             processor_count=processor_count,
             working_directory=working_directory,
+            fluent_path=fluent_path or (self.fluent_cmd if os.path.isfile(self.fluent_cmd) else ""),
         )
-        return self._fluent_backend.launch_session(config)
+        return await asyncio.to_thread(self._fluent_backend.launch_session, config)
 
     async def fluent_inspect_file(
         self, file_path: str, preview_chars: int = 1000
     ) -> dict[str, Any]:
-        return self._fluent_backend.inspect_file(
-            file_path=file_path,
-            preview_chars=max(0, min(preview_chars, 10000)),
+        return await asyncio.to_thread(
+            self._fluent_backend.inspect_file,
+            file_path,
+            max(0, min(preview_chars, 10000)),
         )
 
     async def fluent_list_sessions(self) -> dict[str, Any]:
         return self._fluent_backend.list_sessions()
 
     async def fluent_execute_tui(self, session_id: str, commands: list[str]) -> dict[str, Any]:
-        return self._fluent_backend.execute_tui(session_id=session_id, commands=commands)
+        return await asyncio.to_thread(
+            self._fluent_backend.execute_tui,
+            session_id,
+            commands,
+        )
 
     async def fluent_close_session(self, session_id: str) -> dict[str, Any]:
-        return self._fluent_backend.close_session(session_id)
+        return await asyncio.to_thread(self._fluent_backend.close_session, session_id)
 
     async def fluent_run_journal(
         self,
@@ -576,7 +606,7 @@ class SimulationAdapter(BaseAdapter):
         output_plot: str = "",
     ) -> dict[str, Any]:
         path = require_file(history_file)
-        data = parse_residual_table(path)
+        data, source_independent = parse_history_table(path)
         independent = "iteration" if "iteration" in data else next(iter(data))
         series = {name: values for name, values in data.items() if name != independent}
         summaries = {name: summarize_series(values) for name, values in series.items()}
@@ -586,6 +616,7 @@ class SimulationAdapter(BaseAdapter):
         return {
             "history_file": str(path),
             "independent_column": independent,
+            "source_independent_column": source_independent,
             "rows": len(data.get(independent, [])),
             "series_names": list(series),
             "summaries": summaries,

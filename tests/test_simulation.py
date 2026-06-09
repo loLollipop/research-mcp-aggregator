@@ -1,5 +1,6 @@
 """Tests for the simulation adapter."""
 
+import os
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -226,6 +227,132 @@ async def test_fluent_launch_session_with_mock_pyfluent():
 
 
 @pytest.mark.asyncio
+async def test_fluent_launch_session_passes_explicit_executable_path(tmp_path):
+    adapter = SimulationAdapter()
+    fluent_exe = tmp_path / "ANSYS Inc" / "fluent.exe"
+    fluent_exe.parent.mkdir()
+    fluent_exe.write_text("stub", encoding="utf-8")
+    await adapter.initialize({"fluent_cmd": str(fluent_exe)})
+    launch_kwargs = {}
+    session = SimpleNamespace(tui=SimpleNamespace(execute_command=lambda command: f"ok:{command}"))
+
+    def launch_fluent(
+        precision=None,
+        dimension=None,
+        mode=None,
+        fluent_path=None,
+        **kwargs,
+    ):
+        kwargs.update(
+            precision=precision,
+            dimension=dimension,
+            mode=mode,
+            fluent_path=fluent_path,
+        )
+        launch_kwargs.update(kwargs)
+        return session
+
+    pyfluent = SimpleNamespace(launch_fluent=launch_fluent)
+
+    with patch(
+        "research_mcp.simulation.fluent_backend.importlib.import_module",
+        return_value=pyfluent,
+    ):
+        result = await adapter.fluent_launch_session()
+
+    assert result["status"] == "ok"
+    assert launch_kwargs["dimension"] == 3
+    assert launch_kwargs["fluent_path"] == str(fluent_exe.resolve())
+
+
+@pytest.mark.asyncio
+async def test_fluent_launch_session_uses_version_for_pyfluent_without_dimension(tmp_path):
+    adapter = SimulationAdapter()
+    fluent_exe = tmp_path / "ANSYS Inc" / "v221" / "fluent" / "ntbin" / "win64" / "fluent.exe"
+    fluent_exe.parent.mkdir(parents=True)
+    fluent_exe.write_text("stub", encoding="utf-8")
+    await adapter.initialize({"fluent_cmd": str(fluent_exe)})
+    launch_kwargs = {}
+    env_roots: list[str | None] = []
+    old_root = os.environ.get("PYFLUENT_FLUENT_ROOT")
+    session = SimpleNamespace(tui=SimpleNamespace(execute_command=lambda command: f"ok:{command}"))
+
+    def launch_fluent(
+        product_version=None,
+        version=None,
+        precision=None,
+        processor_count=None,
+        mode=None,
+        cwd=None,
+        **kwargs,
+    ):
+        assert kwargs == {}
+        env_roots.append(os.environ.get("PYFLUENT_FLUENT_ROOT"))
+        launch_kwargs.update(
+            product_version=product_version,
+            version=version,
+            precision=precision,
+            processor_count=processor_count,
+            mode=mode,
+            cwd=cwd,
+        )
+        return session
+
+    pyfluent = SimpleNamespace(launch_fluent=launch_fluent)
+
+    with patch(
+        "research_mcp.simulation.fluent_backend.importlib.import_module",
+        return_value=pyfluent,
+    ):
+        result = await adapter.fluent_launch_session(processor_count=1)
+
+    assert result["status"] == "ok"
+    assert launch_kwargs["version"] == "3d"
+    assert launch_kwargs["processor_count"] == 1
+    assert env_roots == [str((tmp_path / "ANSYS Inc" / "v221" / "fluent").resolve())]
+    assert os.environ.get("PYFLUENT_FLUENT_ROOT") == old_root
+
+
+@pytest.mark.asyncio
+async def test_fluent_launch_session_rejects_missing_working_directory(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    pyfluent = SimpleNamespace(launch_fluent=lambda **kwargs: object())
+
+    with patch(
+        "research_mcp.simulation.fluent_backend.importlib.import_module",
+        return_value=pyfluent,
+    ):
+        with pytest.raises(FileNotFoundError, match="Working directory"):
+            await adapter.fluent_launch_session(working_directory=str(tmp_path / "missing"))
+
+
+@pytest.mark.asyncio
+async def test_shutdown_closes_tracked_fluent_sessions():
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    closed: list[bool] = []
+    session = SimpleNamespace(
+        tui=SimpleNamespace(execute_command=lambda command: f"executed:{command}"),
+        exit=lambda: closed.append(True),
+    )
+    pyfluent = SimpleNamespace(launch_fluent=lambda **kwargs: session)
+
+    with patch(
+        "research_mcp.simulation.fluent_backend.importlib.import_module",
+        return_value=pyfluent,
+    ):
+        launch = await adapter.fluent_launch_session()
+
+    assert launch["status"] == "ok"
+    await adapter.shutdown()
+
+    assert closed == [True]
+    sessions = await adapter.fluent_list_sessions()
+    assert sessions["count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_fluent_execute_tui_and_close_session_with_mock_pyfluent():
     adapter = SimulationAdapter()
     await adapter.initialize({})
@@ -277,9 +404,31 @@ async def test_pfc_parse_history_summarizes_series(tmp_path):
 
     assert result["rows"] == 3
     assert result["independent_column"] == "iteration"
+    assert result["source_independent_column"] == "step"
     assert result["summaries"]["crack_count"]["max"] == 5.0
     assert result["summaries"]["kinetic_energy"]["final"] == 4.0
     assert output_plot.exists()
+
+
+@pytest.mark.asyncio
+async def test_pfc_parse_history_accepts_units_comments_and_d_exponents(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    history_file = tmp_path / "history.out"
+    history_file.write_text(
+        "step crack_count energy\n"
+        "1 0 1.0D+1[J]\n"
+        "bad nonnumeric row\n"
+        "2 3 8.0[J] ; converged\n"
+        "3 5 4.0[J]\n",
+        encoding="utf-8",
+    )
+
+    result = await adapter.pfc_parse_history(str(history_file))
+
+    assert result["rows"] == 3
+    assert result["source_independent_column"] == "step"
+    assert result["summaries"]["energy"]["final"] == 4.0
 
 
 @pytest.mark.asyncio
@@ -305,11 +454,44 @@ async def test_comsol_parse_table_summarizes_exported_table(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_comsol_parse_table_accepts_whitespace_units_and_inline_comments(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({})
+    table_file = tmp_path / "comsol_table.txt"
+    table_file.write_text(
+        "% parameter temperature stress\n"
+        "1[1]   300[K]   10[MPa]\n"
+        "ignored row text\n"
+        "2[1]   330[K]   15[MPa] # final row\n",
+        encoding="utf-8",
+    )
+
+    result = await adapter.comsol_parse_table(str(table_file), x_column="parameter")
+
+    assert result["rows"] == 2
+    assert result["summaries"]["temperature"]["final"] == 330.0
+    assert result["summaries"]["stress"]["max"] == 15.0
+
+
+@pytest.mark.asyncio
 async def test_simulation_rejects_invalid_executable_command():
     adapter = SimulationAdapter()
 
     with pytest.raises(ValueError, match="single executable"):
         await adapter.initialize({"comsol_cmd": "comsol --unsafe"})
+
+
+@pytest.mark.asyncio
+async def test_simulation_accepts_executable_paths_with_spaces(tmp_path):
+    adapter = SimulationAdapter()
+    executable = tmp_path / "Program Files" / "solver.exe"
+    executable.parent.mkdir()
+    executable.write_text("stub", encoding="utf-8")
+
+    await adapter.initialize({"comsol_cmd": str(executable)})
+    status = await adapter.check_config()
+
+    assert status["comsol_cmd"] == str(executable.resolve())
 
 
 @pytest.mark.asyncio
@@ -351,6 +533,26 @@ async def test_comsol_run_batch_rejects_unsupported_output_suffix(tmp_path):
     ):
         with pytest.raises(ValueError, match="Unsupported output suffix"):
             await adapter.comsol_run_batch(str(model), output_file="result.txt")
+
+
+@pytest.mark.asyncio
+async def test_comsol_run_batch_supports_comsolbatch_executable(tmp_path):
+    adapter = SimulationAdapter()
+    comsolbatch = tmp_path / "Program Files" / "comsolbatch.exe"
+    comsolbatch.parent.mkdir()
+    comsolbatch.write_text("stub", encoding="utf-8")
+    await adapter.initialize({"comsol_cmd": str(comsolbatch)})
+    model = tmp_path / "model.mph"
+    model.write_text("model", encoding="utf-8")
+
+    async def fake_run_command(args, cwd, timeout_seconds):
+        return {"args": args, "cwd": str(cwd), "timeout_seconds": timeout_seconds}
+
+    with patch("research_mcp.adapters.simulation_adapter.run_command", fake_run_command):
+        result = await adapter.comsol_run_batch(str(model), timeout_seconds=5)
+
+    assert result["args"][:2] == [str(comsolbatch.resolve()), "-inputfile"]
+    assert "batch" not in result["args"]
 
 
 @pytest.mark.asyncio
