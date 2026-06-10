@@ -1,13 +1,15 @@
 <div align="center">
 
+<img src="assets/logo.svg" alt="Engineering Research MCP logo" width="128" />
+
 # Engineering Research MCP
 
-**One local MCP server for engineering research automation.**
+**One local MCP server for engineering research workflows.**
 
-Search papers, parse PDFs, manage Zotero records, orchestrate simulations, plot results,
-and prepare manuscript assets from a single MCP endpoint.
+Search papers, parse PDFs, manage Zotero records, drive local simulation software,
+plot results, and prepare manuscript assets from a single MCP endpoint.
 
-[简体中文](#中文说明) | **English**
+**English** | [简体中文](README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/loLollipop/research-mcp-aggregator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/loLollipop/research-mcp-aggregator/actions/workflows/ci.yml)
@@ -17,7 +19,7 @@ and prepare manuscript assets from a single MCP endpoint.
 [![Stars](https://img.shields.io/github/stars/loLollipop/research-mcp-aggregator?style=social)](https://github.com/loLollipop/research-mcp-aggregator/stargazers)
 [![Forks](https://img.shields.io/github/forks/loLollipop/research-mcp-aggregator?style=social)](https://github.com/loLollipop/research-mcp-aggregator/forks)
 
-`v0.1.0 public beta` · stable local utilities and public API workflows are usable today;
+`v0.1.0 public beta` - stable local utilities and public API workflows are usable today;
 live COMSOL, Fluent, and PFC control is experimental.
 
 </div>
@@ -240,95 +242,3 @@ python scripts/vendor_external_mcps.py pfc-mcp
 ## License
 
 MIT. Commercial solvers such as COMSOL, ANSYS Fluent, and PFC are not included.
-
----
-
-# 中文说明
-
-<div align="center">
-
-**一个面向工程科研自动化的本地 MCP Server。**
-
-把文献检索、PDF 解析、Zotero、仿真流程、结果解析、绘图和论文资产准备整合到一个 MCP 入口。
-
-**当前状态：** `v0.1.0 public beta`。本地工具和公共 API 工作流可用；COMSOL、Fluent、PFC 的 live control 仍是实验性能力。
-
-</div>
-
-## 功能概览
-
-| 方向 | 能力 |
-| --- | --- |
-| 文献 | arXiv、Semantic Scholar、OpenAlex、Zotero |
-| PDF | MinerU 解析，输出 Markdown、分页文本、标题、表格、公式和图注 |
-| 仿真 | COMSOL、Fluent、PFC 的规划、fallback、live adapter 和结果解析 |
-| 写作 | BibTeX、LaTeX、docx、Nature-style 规划 |
-| 图表 | Matplotlib SVG/PNG/PDF |
-
-## 仿真模块定位
-
-仿真相关工具的定位是给 Codex、Claude、Cursor 等编程助手提供一个更高效的
-本地求解器控制入口，而不是替代 COMSOL、ANSYS Fluent、PFC 本身。它们帮助助手
-检查文件、预检 batch 命令、调用原生求解器 API 或 bridge 会话、解析导出的表格
-和日志，并整理可复现的数值模拟过程。
-
-模型设置、单位、材料、边界条件、网格或时间步敏感性、收敛判据和最终物理解释，
-仍需要在原生求解器和研究者审查流程中确认。
-
-## 快速安装
-
-```bash
-git clone https://github.com/loLollipop/research-mcp-aggregator.git
-cd research-mcp-aggregator
-uv venv
-uv pip install -e .
-```
-
-启动：
-
-```bash
-research-mcp
-```
-
-开发模式：
-
-```bash
-python -m research_mcp.server
-```
-
-## 常用配置
-
-```bash
-export MINERU_API_TOKEN="..."
-export ZOTERO_API_KEY="..."
-export ZOTERO_LIBRARY_ID="..."
-export ZOTERO_LIBRARY_TYPE="user"
-export COMSOL_CMD="comsol"
-export FLUENT_CMD="fluent"
-export PFC_CMD="pfc"
-export LATEX_CMD="latexmk"
-```
-
-只配置你实际需要的部分即可。
-
-## 常用工具
-
-| 场景 | 工具 |
-| --- | --- |
-| 文献综述规划 | `research_literature_review_plan` |
-| PDF 解析 | `pdf_extract_mineru` |
-| 文献库管理 | `zotero_*` |
-| 仿真研究规划 | `research_simulation_study_plan` |
-| 仿真结果解析 | `comsol_parse_table`, `fluent_parse_residuals`, `pfc_parse_history` |
-| 绘图 | `plot_xy`, `plot_csv_columns` |
-| 论文资产 | `latex_*`, `docx_*`, `nature_*` |
-
-## 边界
-
-- live solver control 依赖本机商业软件、许可证和进程状态；
-- MinerU 解析会把 PDF 上传到 MinerU 服务，请只处理允许外部解析的文件；
-- public beta 阶段工具 schema 仍可能调整。
-
-## License
-
-MIT。COMSOL、ANSYS Fluent、PFC 等商业软件不包含在本项目中。

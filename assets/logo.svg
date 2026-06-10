@@ -1,0 +1,33 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Engineering Research MCP logo</title>
+  <desc id="desc">A local research MCP hub connecting papers, simulations, figures, and writing workflows.</desc>
+  <defs>
+    <linearGradient id="bg" x1="88" y1="64" x2="424" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5E9"/>
+      <stop offset="0.5" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="node" x1="148" y1="146" x2="364" y2="370" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#DDEAFE"/>
+    </linearGradient>
+    <filter id="shadow" x="54" y="50" width="404" height="420" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1E1B4B" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="#F8FAFC"/>
+  <g filter="url(#shadow)">
+    <path d="M256 72L405.6 158.4V331.6L256 418L106.4 331.6V158.4L256 72Z" fill="url(#bg)"/>
+  </g>
+  <path d="M256 111L372 178V312L256 379L140 312V178L256 111Z" fill="#0F172A" fill-opacity="0.18"/>
+  <path d="M173 202L256 154L339 202V298L256 346L173 298V202Z" fill="#FFFFFF" fill-opacity="0.12" stroke="#DDEAFE" stroke-opacity="0.55" stroke-width="8"/>
+  <path d="M256 156V256M173 204L256 256M339 204L256 256M173 300L256 256M339 300L256 256M256 256V346" stroke="#E0F2FE" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="48" fill="url(#node)"/>
+  <circle cx="256" cy="156" r="22" fill="#F8FAFC"/>
+  <circle cx="173" cy="204" r="22" fill="#F8FAFC"/>
+  <circle cx="339" cy="204" r="22" fill="#F8FAFC"/>
+  <circle cx="173" cy="300" r="22" fill="#F8FAFC"/>
+  <circle cx="339" cy="300" r="22" fill="#F8FAFC"/>
+  <circle cx="256" cy="346" r="22" fill="#F8FAFC"/>
+  <path d="M222 270V242H236L256 262L276 242H290V270H276V259L260 274H252L236 259V270H222Z" fill="#3730A3"/>
+</svg>
