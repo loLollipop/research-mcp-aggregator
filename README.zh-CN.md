@@ -11,13 +11,15 @@
 
 [English](README.md) | **简体中文**
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![CI](https://github.com/loLollipop/research-mcp-aggregator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/loLollipop/research-mcp-aggregator/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v0.1.0-blue.svg)](https://github.com/loLollipop/research-mcp-aggregator/releases)
-[![Python](https://img.shields.io/badge/python-3.10--3.12-3776AB.svg)](pyproject.toml)
-[![MCP](https://img.shields.io/badge/MCP-research--mcp-purple.svg)](https://modelcontextprotocol.io/)
-[![Stars](https://img.shields.io/github/stars/loLollipop/research-mcp-aggregator?style=social)](https://github.com/loLollipop/research-mcp-aggregator/stargazers)
-[![Forks](https://img.shields.io/github/forks/loLollipop/research-mcp-aggregator?style=social)](https://github.com/loLollipop/research-mcp-aggregator/forks)
+<p>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT" /></a>
+  <a href="https://github.com/loLollipop/research-mcp-aggregator/actions/workflows/ci.yml"><img src="https://github.com/loLollipop/research-mcp-aggregator/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
+  <a href="https://github.com/loLollipop/research-mcp-aggregator/releases"><img src="https://img.shields.io/badge/release-v0.1.0-blue.svg" alt="Release v0.1.0" /></a>
+</p>
+<p>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10--3.12-3776AB.svg" alt="Python 3.10-3.12" /></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-research--mcp-purple.svg" alt="MCP research-mcp" /></a>
+</p>
 
 `v0.1.0 public beta` - 本地工具和公共 API 工作流当前可用；COMSOL、Fluent、
 PFC 的 live control 仍是实验性能力。
