@@ -21,9 +21,6 @@ plot results, and prepare manuscript assets from a single MCP endpoint.
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-research--mcp-purple.svg" alt="MCP research-mcp" /></a>
 </p>
 
-`v0.1.0 public beta` - stable local utilities and public API workflows are usable today;
-live COMSOL, Fluent, and PFC control is experimental.
-
 </div>
 
 ---

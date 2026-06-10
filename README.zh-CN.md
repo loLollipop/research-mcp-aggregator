@@ -21,9 +21,6 @@
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-research--mcp-purple.svg" alt="MCP research-mcp" /></a>
 </p>
 
-`v0.1.0 public beta` - 本地工具和公共 API 工作流当前可用；COMSOL、Fluent、
-PFC 的 live control 仍是实验性能力。
-
 </div>
 
 ---
