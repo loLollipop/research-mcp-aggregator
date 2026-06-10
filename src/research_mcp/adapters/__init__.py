@@ -84,6 +84,8 @@ def discover_adapters() -> None:
         external_mcp_adapter,
         figure_adapter,
         latex_adapter,
+        matlab_adapter,
+        memory_adapter,
         nature_adapter,
         openalex_adapter,
         pdf_adapter,

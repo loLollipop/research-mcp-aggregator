@@ -15,6 +15,7 @@ venv/
 vendors/external/
 
 # Runtime solver/debug artifacts
+.research_mcp/
 .pfc-mcp/
 .pfc-mcp-bridge/
 logs/

@@ -33,15 +33,16 @@ PFC 的 live control 仍是实验性能力。
 | 方向 | 内置能力 |
 | --- | --- |
 | 文献 | arXiv、Semantic Scholar、OpenAlex、Zotero Web API |
+| 记忆 / RAG | 基于本地 SQLite 的长期记忆，用于复用日常笔记、仿真经验、文献笔记、网页草稿和反馈加权检索 |
 | PDF 阅读 | MinerU 解析到 Markdown、分页文本、标题、表格、公式和图注 |
-| 仿真 | COMSOL、Fluent、PFC 的规划、batch fallback、live adapter 和结果解析 |
+| 仿真 | COMSOL、Fluent、PFC、MATLAB 的规划、batch fallback、live adapter 和结果解析 |
 | 写作 | BibTeX 辅助、LaTeX 编译/校验、Word/docx 编辑 |
 | 图表 | 基于数组或 CSV 列生成 Matplotlib SVG/PNG/PDF 图 |
 | 规划 | 文献综述、仿真研究、论文资产包和 Nature-style 规划 |
 
 配置一次 `research-mcp` 后，就可以直接调用 `arxiv_search`、
-`pdf_extract_mineru`、`zotero_add_by_doi`、`comsol_parse_table`、`plot_xy`、
-`latex_compile`、`docx_create` 等工具。
+`pdf_extract_mineru`、`zotero_add_by_doi`、`memory_search`、
+`comsol_parse_table`、`matlab_run_file`、`plot_xy`、`latex_compile`、`docx_create` 等工具。
 
 ### 仿真模块定位
 
@@ -116,9 +117,11 @@ python -m research_mcp.server
         "ZOTERO_API_KEY": "your-zotero-key",
         "ZOTERO_LIBRARY_ID": "your-library-id",
         "ZOTERO_LIBRARY_TYPE": "user",
+        "RESEARCH_MCP_MEMORY_DB": "D:/path/to/research-memory.sqlite3",
         "COMSOL_CMD": "comsol",
         "FLUENT_CMD": "fluent",
         "PFC_CMD": "pfc",
+        "MATLAB_CMD": "matlab",
         "LATEX_CMD": "latexmk"
       }
     }
@@ -136,10 +139,12 @@ python -m research_mcp.server
 | --- | --- |
 | 工作流 | `research_capability_list`, `research_literature_review_plan`, `research_simulation_study_plan`, `research_paper_asset_pack` |
 | 迁移目录 | `external_mcp_list`, `external_mcp_get`, `external_mcp_config_snippet`, `engineering_workflow_template` |
+| 记忆 / RAG | `memory_status`, `memory_record`, `memory_search`, `memory_export_context`, `memory_record_simulation_run`, `memory_record_error_case`, `memory_record_literature_note`, `memory_index_zotero_item`, `memory_record_web_source`, `memory_record_web_results`, `memory_feedback`, `memory_promote`, `memory_deprecate` |
 | 文献 API | `arxiv_*`, `s2_*`, `openalex_*` |
 | PDF / MinerU | `pdf_check_config`, `pdf_extract_mineru` |
 | Zotero | `zotero_status`, `zotero_search_items`, `zotero_get_item`, `zotero_create_collection`, `zotero_add_by_doi`, `zotero_update_item_tags` |
 | 仿真 | `simulation_check_config`, `simulation_workflow_template`, `comsol_*`, `fluent_*`, `pfc_*` |
+| MATLAB | `matlab_check_config`, `matlab_create_script`, `matlab_check_code`, `matlab_evaluate_code`, `matlab_run_file`, `matlab_run_test_file`, `matlab_detect_toolboxes`, `matlab_parse_table`, `matlab_create_plot_export_script` |
 | PFC 文档 | `pfc_docs_status`, `pfc_browse_commands`, `pfc_query_command`, `pfc_browse_python_api`, `pfc_query_python_api` |
 | 图表 | `plot_xy`, `plot_csv_columns` |
 | 写作 | `format_bibtex`, `generate_citation_key`, `parse_bibtex` |
@@ -196,6 +201,34 @@ import pfc_mcp_bridge
 pfc_mcp_bridge.start()
 ```
 
+### MATLAB
+
+```bash
+export MATLAB_CMD="/path/to/matlab"
+export MATLAB_TIMEOUT_SECONDS="600"
+```
+
+MATLAB adapter 参考了 MathWorks 官方 `matlab/matlab-mcp-core-server` 以及社区
+MATLAB MCP 项目的核心能力，但保持为本项目内的 Python 自包含实现。它通过 MATLAB
+命令行 `-batch` 工作流完成代码检查、代码执行、文件执行、测试文件执行和 toolbox
+检测。执行类工具默认 `dry_run=true`，便于在消耗 license 时间或运行生成代码前先审查命令。
+它还包含对 MATLAB 导出 CSV/TSV/TXT 表格的本地解析，以及为经审查的后处理流程生成
+MATLAB 绘图导出脚本的辅助工具。
+
+如果本机已安装并授权 MATLAB，可用下面的最小 smoke check 做本地验证：
+
+```bash
+matlab -batch "disp('research-mcp MATLAB smoke')"
+python -m pytest -q tests/test_matlab_adapter.py
+```
+
+默认自动化测试只覆盖 dry-run 和纯 Python 路径，因此可以在没有 MATLAB 的 GitHub Actions
+上运行；真实 MATLAB 执行建议作为 release 前的可选本地验证步骤。
+
+release 前，维护者可以再运行更完整的本地 smoke：覆盖代码执行、文件执行、
+`checkcode`、`runtests`、toolbox 检测、MATLAB 导出表格解析和绘图导出脚本生成。
+生成的临时结果建议放在已被 git 忽略的 `outputs/` 目录下。
+
 ---
 
 ## 成熟度
@@ -230,6 +263,7 @@ python scripts/vendor_external_mcps.py pfc-mcp
 ## 边界
 
 - Live COMSOL、Fluent、PFC control 是实验性能力，不能替代厂商侧验证。
+- MATLAB 命令行执行是实验性能力，需要本机 MATLAB 安装和 license。
 - 公共学术 API 可能限流，元数据也可能不完整。
 - MinerU 解析会把 PDF 上传到配置的 MinerU 服务，请只处理允许外部解析的文件。
 - Public beta 阶段工具 schema 仍可能调整。

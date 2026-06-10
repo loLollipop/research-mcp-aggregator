@@ -132,6 +132,51 @@ INTERNAL_CAPABILITIES: tuple[InternalCapability, ...] = (
         output_types=("command_docs", "python_api_docs", "history_table", "bridge_task_status"),
     ),
     InternalCapability(
+        key="matlab",
+        domain="simulation/matlab",
+        name="MATLAB command-line workflows",
+        status="local adapter inspired by official MATLAB MCP Core Server capabilities",
+        purpose=(
+            "Create MATLAB files, dry-run or execute MATLAB -batch code and files, "
+            "run MATLAB test files, check code, detect installed toolboxes, parse "
+            "MATLAB-exported tables, and generate reviewed plot-export scripts."
+        ),
+        internal_tools=(
+            "matlab_check_config",
+            "matlab_create_script",
+            "matlab_check_code",
+            "matlab_evaluate_code",
+            "matlab_run_file",
+            "matlab_run_test_file",
+            "matlab_detect_toolboxes",
+            "matlab_parse_table",
+            "matlab_create_plot_export_script",
+        ),
+        replaces=(
+            "matlab-mcp-core-server",
+            "matlab-mcp-server",
+            "matlab-mcp",
+            "matlab-mcp-tools",
+        ),
+        configuration="Set MATLAB_CMD if the matlab executable is not on PATH.",
+        notes=(
+            "Official MathWorks MCP exists at matlab/matlab-mcp-core-server; "
+            "research-mcp keeps a self-contained Python adapter rather than vendoring it."
+        ),
+        maturity="experimental",
+        dependencies=("MATLAB", "MATLAB_CMD", "local MATLAB licensing"),
+        workflow_roles=("simulation_design", "simulation_execution", "post_processing"),
+        output_types=(
+            "matlab_script",
+            "batch_log",
+            "checkcode_output",
+            "toolbox_list",
+            "table_summary",
+            "plot_export_script",
+            "figure_artifact",
+        ),
+    ),
+    InternalCapability(
         key="zotero",
         domain="literature/zotero",
         name="Zotero Web API workflows",

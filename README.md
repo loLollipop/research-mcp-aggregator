@@ -33,15 +33,16 @@ live COMSOL, Fluent, and PFC control is experimental.
 | Area | Built-in capability |
 | --- | --- |
 | Literature | arXiv, Semantic Scholar, OpenAlex, Zotero Web API |
+| Memory / RAG | Local SQLite long-term memory for reusable notes, simulation experience, literature notes, web-source drafts, and feedback-aware retrieval |
 | PDF reading | MinerU extraction to Markdown, page text, headings, tables, formulas, captions |
-| Simulation | COMSOL, Fluent, PFC planning, batch fallbacks, live adapters, result parsers |
+| Simulation | COMSOL, Fluent, PFC, MATLAB planning, batch fallbacks, live adapters, result parsers |
 | Writing | BibTeX helpers, LaTeX compile/validation, Word/docx editing |
 | Figures | Matplotlib SVG/PNG/PDF plots from arrays or CSV columns |
 | Planning | Literature-review, simulation-study, paper-asset, and Nature-style plans |
 
 Configure `research-mcp` once, then call tools directly such as `arxiv_search`,
-`pdf_extract_mineru`, `zotero_add_by_doi`, `comsol_parse_table`, `plot_xy`,
-`latex_compile`, or `docx_create`.
+`pdf_extract_mineru`, `zotero_add_by_doi`, `memory_search`,
+`comsol_parse_table`, `matlab_run_file`, `plot_xy`, `latex_compile`, or `docx_create`.
 
 ### Simulation philosophy
 
@@ -118,9 +119,11 @@ Development checkout config:
         "ZOTERO_API_KEY": "your-zotero-key",
         "ZOTERO_LIBRARY_ID": "your-library-id",
         "ZOTERO_LIBRARY_TYPE": "user",
+        "RESEARCH_MCP_MEMORY_DB": "D:/path/to/research-memory.sqlite3",
         "COMSOL_CMD": "comsol",
         "FLUENT_CMD": "fluent",
         "PFC_CMD": "pfc",
+        "MATLAB_CMD": "matlab",
         "LATEX_CMD": "latexmk"
       }
     }
@@ -138,10 +141,12 @@ Only set the environment variables for workflows you actually use.
 | --- | --- |
 | Workflows | `research_capability_list`, `research_literature_review_plan`, `research_simulation_study_plan`, `research_paper_asset_pack` |
 | Migration catalog | `external_mcp_list`, `external_mcp_get`, `external_mcp_config_snippet`, `engineering_workflow_template` |
+| Memory / RAG | `memory_status`, `memory_record`, `memory_search`, `memory_export_context`, `memory_record_simulation_run`, `memory_record_error_case`, `memory_record_literature_note`, `memory_index_zotero_item`, `memory_record_web_source`, `memory_record_web_results`, `memory_feedback`, `memory_promote`, `memory_deprecate` |
 | Literature APIs | `arxiv_*`, `s2_*`, `openalex_*` |
 | PDF / MinerU | `pdf_check_config`, `pdf_extract_mineru` |
 | Zotero | `zotero_status`, `zotero_search_items`, `zotero_get_item`, `zotero_create_collection`, `zotero_add_by_doi`, `zotero_update_item_tags` |
 | Simulation | `simulation_check_config`, `simulation_workflow_template`, `comsol_*`, `fluent_*`, `pfc_*` |
+| MATLAB | `matlab_check_config`, `matlab_create_script`, `matlab_check_code`, `matlab_evaluate_code`, `matlab_run_file`, `matlab_run_test_file`, `matlab_detect_toolboxes`, `matlab_parse_table`, `matlab_create_plot_export_script` |
 | PFC docs | `pfc_docs_status`, `pfc_browse_commands`, `pfc_query_command`, `pfc_browse_python_api`, `pfc_query_python_api` |
 | Figures | `plot_xy`, `plot_csv_columns` |
 | Writing | `format_bibtex`, `generate_citation_key`, `parse_bibtex` |
@@ -199,6 +204,38 @@ import pfc_mcp_bridge
 pfc_mcp_bridge.start()
 ```
 
+### MATLAB
+
+```bash
+export MATLAB_CMD="/path/to/matlab"
+export MATLAB_TIMEOUT_SECONDS="600"
+```
+
+The MATLAB adapter is inspired by the official MathWorks
+`matlab/matlab-mcp-core-server` and community MATLAB MCP projects, but it stays
+self-contained in Python. It uses MATLAB command-line `-batch` workflows for
+code checking, code evaluation, file execution, test-file execution, and toolbox
+detection. Execution tools default to `dry_run=true` so commands can be reviewed
+before consuming license time or running generated code. It also includes local
+parsing of MATLAB-exported CSV/TSV/TXT tables and generation of MATLAB
+plot-export scripts for reviewed post-processing workflows.
+
+Minimal local smoke check, if MATLAB is installed and licensed:
+
+```bash
+matlab -batch "disp('research-mcp MATLAB smoke')"
+python -m pytest -q tests/test_matlab_adapter.py
+```
+
+The automated test suite uses dry-run and pure-Python paths by default, so it can
+run on GitHub Actions without a MATLAB installation. Live MATLAB execution should
+be treated as an optional local validation step before releases.
+
+For release checks, maintainers can run a fuller local smoke that exercises code
+evaluation, file execution, `checkcode`, `runtests`, toolbox detection,
+MATLAB-exported table parsing, and plot-export script generation. Keep generated
+artifacts under `outputs/`, which is ignored by git.
+
 ---
 
 ## Maturity
@@ -233,6 +270,7 @@ python scripts/vendor_external_mcps.py pfc-mcp
 ## Limitations
 
 - Live COMSOL, Fluent, and PFC control is experimental and not a substitute for vendor-side validation.
+- MATLAB command-line execution is experimental and requires a local MATLAB installation and license.
 - Public scholarly APIs can be rate-limited or return incomplete metadata.
 - MinerU parsing uploads PDFs to the configured MinerU service; use it only for files you are allowed to process externally.
 - Public beta tool schemas may change before a stable release.

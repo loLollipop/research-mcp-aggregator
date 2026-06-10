@@ -18,11 +18,27 @@
       "porting_notes": "Audit first; port PFC Python/API integration into local adapter, keeping pfc_run_script and pfc_parse_history as fallbacks."
     },
     {
+      "key": "matlab-mcp-core-server",
+      "repo": "https://github.com/matlab/matlab-mcp-core-server.git",
+      "target": "vendors/external/matlab-mcp-core-server",
+      "domain": "simulation/matlab",
+      "priority": 2,
+      "expected_capabilities": [
+        "MATLAB code checking",
+        "MATLAB code evaluation",
+        "MATLAB file execution",
+        "MATLAB test file execution",
+        "MATLAB toolbox detection"
+      ],
+      "audit_status": "scanned",
+      "porting_notes": "Official MathWorks MATLAB MCP exists. research-mcp currently keeps a self-contained Python adapter using MATLAB -batch workflows instead of vendoring or proxying the Go server, with local extensions for MATLAB-exported table parsing and reviewed plot-export script generation."
+    },
+    {
       "key": "ansys-mcp-server",
       "repo": "https://github.com/knewnothing-git/ansys-mcp-server.git",
       "target": "vendors/external/ansys-mcp-server",
       "domain": "simulation/fluent",
-      "priority": 2,
+      "priority": 3,
       "expected_capabilities": [
         "PyAnsys or PyFluent session management",
         "Fluent case/data loading",
@@ -37,7 +53,7 @@
       "repo": "https://github.com/wjc9011/comsol_multiphysics_mcp.git",
       "target": "vendors/external/comsol-multiphysics-mcp",
       "domain": "simulation/comsol",
-      "priority": 3,
+      "priority": 4,
       "expected_capabilities": [
         "COMSOL model loading",
         "parameter setting",
@@ -52,7 +68,7 @@
       "repo": "https://github.com/Ching-Chiang/comsol-mcp.git",
       "target": "vendors/external/comsol-mcp",
       "domain": "simulation/comsol",
-      "priority": 4,
+      "priority": 5,
       "expected_capabilities": [
         "COMSOL API integration",
         "model inspection",
