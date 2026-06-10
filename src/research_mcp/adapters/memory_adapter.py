@@ -280,12 +280,13 @@ class MemoryAdapter(BaseAdapter):
                                 "items": {
                                     "type": "object",
                                     "properties": {
-                                        "title": {"type": "string"},
-                                        "url": {"type": "string"},
+                                        "title": {"type": "string", "minLength": 1},
+                                        "url": {"type": "string", "minLength": 1},
                                         "snippet": {"type": "string"},
                                         "content": {"type": "string"},
                                     },
                                     "required": ["title", "url"],
+                                    "additionalProperties": False,
                                 },
                             },
                             "project": _string_schema("Optional project name."),
@@ -617,11 +618,11 @@ class MemoryAdapter(BaseAdapter):
     ) -> dict[str, Any]:
         recorded: list[dict[str, Any]] = []
         for result in results[:25]:
-            title = str(result.get("title") or "Untitled web result").strip()
+            title = str(result.get("title") or "").strip() or "Untitled web result"
             url = str(result.get("url") or result.get("source_url") or "").strip()
             content = str(
                 result.get("content") or result.get("snippet") or result.get("summary") or title
-            ).strip()
+            ).strip() or title
             recorded.append(
                 self._store().record(
                     title=title,

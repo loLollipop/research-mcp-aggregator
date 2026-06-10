@@ -135,7 +135,7 @@ INTERNAL_CAPABILITIES: tuple[InternalCapability, ...] = (
         key="matlab",
         domain="simulation/matlab",
         name="MATLAB command-line workflows",
-        status="local adapter inspired by official MATLAB MCP Core Server capabilities",
+        status="local adapter for MATLAB command-line workflows",
         purpose=(
             "Create MATLAB files, dry-run or execute MATLAB -batch code and files, "
             "run MATLAB test files, check code, detect installed toolboxes, parse "
@@ -160,8 +160,8 @@ INTERNAL_CAPABILITIES: tuple[InternalCapability, ...] = (
         ),
         configuration="Set MATLAB_CMD if the matlab executable is not on PATH.",
         notes=(
-            "Official MathWorks MCP exists at matlab/matlab-mcp-core-server; "
-            "research-mcp keeps a self-contained Python adapter rather than vendoring it."
+            "Self-contained Python adapter; requires a local MATLAB installation "
+            "and does not bundle MATLAB runtime components."
         ),
         maturity="experimental",
         dependencies=("MATLAB", "MATLAB_CMD", "local MATLAB licensing"),

@@ -1,9 +1,4 @@
-"""Local MATLAB command-line adapter.
-
-This adapter mirrors the core shape of existing MATLAB MCP servers while keeping
-research-mcp self-contained. It uses MATLAB's command-line ``-batch`` mode and
-does not vendor or proxy third-party MCP server code.
-"""
+"""Local MATLAB command-line adapter using MATLAB's ``-batch`` mode."""
 
 from __future__ import annotations
 
@@ -309,12 +304,6 @@ class MatlabAdapter(BaseAdapter):
                 "MATLAB_CMD": os.environ.get("MATLAB_CMD", ""),
                 "MATLAB_TIMEOUT_SECONDS": os.environ.get("MATLAB_TIMEOUT_SECONDS", ""),
             },
-            "upstream_references": [
-                "matlab/matlab-mcp-core-server",
-                "WilliamCloudQi/matlab-mcp-server",
-                "Tsuchijo/matlab-mcp",
-                "neuromechanist/matlab-mcp-tools",
-            ],
         }
 
     async def create_script(
@@ -346,7 +335,7 @@ class MatlabAdapter(BaseAdapter):
             command = f"checkcode('{self._matlab_string(str(target))}')"
             input_files = {"file_path": str(target)}
         elif code.strip():
-            command = f"checkcode({self._matlab_string_literal(code)})"
+            command = self._check_inline_code_command(code)
             input_files = {"code": "inline"}
         else:
             raise ValueError("Provide either code or file_path")
@@ -484,6 +473,7 @@ class MatlabAdapter(BaseAdapter):
         if figure.suffix.lower() not in MATLAB_FIGURE_SUFFIXES:
             allowed = ", ".join(sorted(MATLAB_FIGURE_SUFFIXES))
             raise ValueError(f"Unsupported figure output suffix. Allowed suffixes: {allowed}")
+        self._require_table_columns(table, {x_column, y_column})
         if script.exists() and not overwrite:
             raise FileExistsError(f"MATLAB script already exists: {script}")
         script.parent.mkdir(parents=True, exist_ok=True)
@@ -567,6 +557,18 @@ class MatlabAdapter(BaseAdapter):
     def _matlab_string_literal(self, value: str) -> str:
         return "'" + self._matlab_string(value) + "'"
 
+    def _check_inline_code_command(self, code: str) -> str:
+        code_literal = self._matlab_string_literal(code)
+        return (
+            "tmp = [tempname '.m']; "
+            "cleanup = onCleanup(@() delete(tmp)); "
+            "fid = fopen(tmp, 'w'); "
+            "if fid < 0, error('Could not create temporary checkcode file'); end; "
+            f"fwrite(fid, {code_literal}, 'char'); "
+            "fclose(fid); "
+            "checkcode(tmp)"
+        )
+
     def _resolve_delimiter(self, path: Path, delimiter: str) -> str:
         if delimiter == "comma":
             return ","
@@ -581,6 +583,19 @@ class MatlabAdapter(BaseAdapter):
             return csv.Sniffer().sniff(sample, delimiters=",\t;").delimiter
         except csv.Error:
             return ","
+
+    def _require_table_columns(self, path: Path, required_columns: set[str]) -> None:
+        delimiter = self._resolve_delimiter(path, "auto")
+        with path.open(newline="", encoding="utf-8-sig") as handle:
+            reader = csv.reader(handle, delimiter=delimiter)
+            columns = next(reader, [])
+        missing = sorted(column for column in required_columns if column not in columns)
+        if missing:
+            available = ", ".join(columns) if columns else "<none>"
+            raise ValueError(
+                "Table column not found: "
+                f"{', '.join(missing)}. Available columns: {available}"
+            )
 
     def _numeric_summary(
         self,

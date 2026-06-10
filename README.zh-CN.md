@@ -27,7 +27,7 @@
 
 ## 它能做什么
 
-`research-mcp` 用一个本地 MCP Server 取代一组分散的科研 MCP 小工具。
+`research-mcp` 将常用工程科研工作流工具聚合到一个本地 MCP Server 中。
 
 | 方向 | 内置能力 |
 | --- | --- |
@@ -45,7 +45,7 @@
 
 ### 仿真模块定位
 
-仿真相关工具的定位是给 Codex、Claude、Cursor 等编程助手提供一个更高效的
+仿真相关工具的定位是给 MCP 客户端和 AI 编程助手提供一个更高效的
 本地求解器控制入口，而不是替代 COMSOL、ANSYS Fluent、PFC 本身，也不是替代
 专家验证。它们帮助助手检查文件、用 `dry_run` 预检 batch 命令、调用原生求解器
 API 或 bridge 会话、解析导出的表格/日志，并整理可复现的数值模拟过程。
@@ -207,12 +207,11 @@ export MATLAB_CMD="/path/to/matlab"
 export MATLAB_TIMEOUT_SECONDS="600"
 ```
 
-MATLAB adapter 参考了 MathWorks 官方 `matlab/matlab-mcp-core-server` 以及社区
-MATLAB MCP 项目的核心能力，但保持为本项目内的 Python 自包含实现。它通过 MATLAB
-命令行 `-batch` 工作流完成代码检查、代码执行、文件执行、测试文件执行和 toolbox
-检测。执行类工具默认 `dry_run=true`，便于在消耗 license 时间或运行生成代码前先审查命令。
-它还包含对 MATLAB 导出 CSV/TSV/TXT 表格的本地解析，以及为经审查的后处理流程生成
-MATLAB 绘图导出脚本的辅助工具。
+MATLAB adapter 是本项目内的 Python 自包含实现，通过 MATLAB 命令行 `-batch`
+工作流完成代码检查、代码执行、文件执行、测试文件执行和 toolbox 检测。执行类工具
+默认 `dry_run=true`，便于在消耗 license 时间或运行生成代码前先审查命令。它还包含
+对 MATLAB 导出 CSV/TSV/TXT 表格的本地解析，以及为经审查的后处理流程生成 MATLAB
+绘图导出脚本的辅助工具。
 
 如果本机已安装并授权 MATLAB，可用下面的最小 smoke check 做本地验证：
 
@@ -237,7 +236,7 @@ release 前，维护者可以再运行更完整的本地 smoke：覆盖代码执
 | 稳定本地工具 | 确定性的文件、解析器、绘图、BibTeX、LaTeX、docx 和导出表格工具 |
 | 稳定 API 工作流 | arXiv、OpenAlex、Semantic Scholar、Zotero、MinerU 等网络/API 工作流 |
 | 实验性 live solver | 需要本机安装和许可证的 COMSOL MPh、PyFluent、PFC bridge 控制 |
-| 迁移辅助 | 帮助替代原本分散 MCP Server 的兼容工具 |
+| 目录辅助 | 能力发现和工作流模板工具 |
 
 ---
 
@@ -251,11 +250,7 @@ python -m ruff check .
 python -m build
 ```
 
-开发目录中的 PFC 文档浏览需要 vendor 文档资源：
-
-```bash
-python scripts/vendor_external_mcps.py pfc-mcp
-```
+开发目录中的 PFC 文档浏览会在本地文档资源可用时启用。
 
 ---
 

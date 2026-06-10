@@ -83,6 +83,15 @@ class MemoryStore:
                     error_signature TEXT NOT NULL DEFAULT '',
                     fix_item_ids_json TEXT NOT NULL DEFAULT '[]'
                 );
+
+                CREATE INDEX IF NOT EXISTS idx_memory_items_status
+                    ON memory_items(status);
+                CREATE INDEX IF NOT EXISTS idx_memory_items_type
+                    ON memory_items(item_type);
+                CREATE INDEX IF NOT EXISTS idx_memory_items_software
+                    ON memory_items(software);
+                CREATE INDEX IF NOT EXISTS idx_memory_items_project
+                    ON memory_items(project);
                 """
             )
             self._fts_enabled = self._ensure_fts(conn)
@@ -135,14 +144,49 @@ class MemoryStore:
         if not clean_content:
             raise ValueError("Memory content cannot be empty")
 
+        row = self._memory_row(
+            title=clean_title,
+            content=clean_content,
+            item_type=item_type,
+            status=status,
+            confidence=confidence,
+            source_type=source_type,
+            source_ref=source_ref,
+            project=project,
+            software=software,
+            problem_signature=problem_signature,
+            tags=tags,
+            metadata=metadata,
+        )
+
+        with self._connect() as conn:
+            self._insert_memory_row(conn, row)
+
+        return self.get(row["id"]) or {}
+
+    def _memory_row(
+        self,
+        *,
+        title: str,
+        content: str,
+        item_type: str,
+        status: str,
+        confidence: float,
+        source_type: str,
+        source_ref: str,
+        project: str,
+        software: str,
+        problem_signature: str,
+        tags: list[str] | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         now = utc_now()
-        item_id = uuid4().hex
-        row = {
-            "id": item_id,
+        return {
+            "id": uuid4().hex,
             "created_at": now,
             "updated_at": now,
-            "title": clean_title,
-            "content": clean_content,
+            "title": title,
+            "content": content,
             "item_type": normalize_item_type(item_type),
             "status": normalize_status(status),
             "confidence": clamp_confidence(confidence),
@@ -158,26 +202,24 @@ class MemoryStore:
             "last_used_at": "",
         }
 
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO memory_items (
-                    id, created_at, updated_at, title, content, item_type, status,
-                    confidence, source_type, source_ref, project, software,
-                    problem_signature, tags_json, metadata_json, success_count,
-                    failure_count, last_used_at
-                ) VALUES (
-                    :id, :created_at, :updated_at, :title, :content, :item_type, :status,
-                    :confidence, :source_type, :source_ref, :project, :software,
-                    :problem_signature, :tags_json, :metadata_json, :success_count,
-                    :failure_count, :last_used_at
-                )
-                """,
-                row,
+    def _insert_memory_row(self, conn: sqlite3.Connection, row: dict[str, Any]) -> None:
+        conn.execute(
+            """
+            INSERT INTO memory_items (
+                id, created_at, updated_at, title, content, item_type, status,
+                confidence, source_type, source_ref, project, software,
+                problem_signature, tags_json, metadata_json, success_count,
+                failure_count, last_used_at
+            ) VALUES (
+                :id, :created_at, :updated_at, :title, :content, :item_type, :status,
+                :confidence, :source_type, :source_ref, :project, :software,
+                :problem_signature, :tags_json, :metadata_json, :success_count,
+                :failure_count, :last_used_at
             )
-            self._upsert_fts(conn, row)
-
-        return self.get(item_id) or {}
+            """,
+            row,
+        )
+        self._upsert_fts(conn, row)
 
     def get(self, item_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:
@@ -368,8 +410,36 @@ class MemoryStore:
         error_signature: str = "",
         fix_item_ids: list[str] | None = None,
     ) -> dict[str, Any]:
+        clean_software = software.strip()
+        clean_task = task.strip()
+        clean_status = status.strip().lower()
+        if not clean_software:
+            raise ValueError("Simulation software cannot be empty")
+        if not clean_task:
+            raise ValueError("Simulation task cannot be empty")
+
         run_id = uuid4().hex
         now = utc_now()
+        memory_status, memory_confidence = self._simulation_memory_status(clean_status)
+        memory_row = self._memory_row(
+            title=f"{clean_software} simulation run: {clean_task}",
+            content=self._simulation_content(
+                status=status,
+                parameters=parameters or {},
+                log_excerpt=log_excerpt,
+                error_signature=error_signature,
+            ),
+            item_type="simulation_run",
+            status=memory_status,
+            confidence=memory_confidence,
+            source_type="simulation",
+            source_ref=run_id,
+            project="",
+            software=clean_software,
+            problem_signature=error_signature,
+            tags=[clean_software, clean_status, "simulation_run"],
+            metadata={"run_id": run_id, "fix_item_ids": fix_item_ids or []},
+        )
         with self._connect() as conn:
             conn.execute(
                 """
@@ -382,9 +452,9 @@ class MemoryStore:
                 (
                     run_id,
                     now,
-                    software.strip(),
-                    task.strip(),
-                    status.strip().lower(),
+                    clean_software,
+                    clean_task,
+                    clean_status,
                     dumps_json(parameters or {}),
                     dumps_json(input_files or []),
                     dumps_json(output_files or []),
@@ -393,24 +463,8 @@ class MemoryStore:
                     dumps_json(fix_item_ids or []),
                 ),
             )
-        memory = self.record(
-            title=f"{software.strip()} simulation run: {task.strip()}",
-            content=self._simulation_content(
-                status=status,
-                parameters=parameters or {},
-                log_excerpt=log_excerpt,
-                error_signature=error_signature,
-            ),
-            item_type="simulation_run",
-            status="verified" if status.strip().lower() in {"success", "ok", "passed"} else "draft",
-            confidence=0.7 if status.strip().lower() in {"success", "ok", "passed"} else 0.35,
-            source_type="simulation",
-            source_ref=run_id,
-            software=software,
-            problem_signature=error_signature,
-            tags=[software, status, "simulation_run"],
-            metadata={"run_id": run_id, "fix_item_ids": fix_item_ids or []},
-        )
+            self._insert_memory_row(conn, memory_row)
+        memory = self.get(memory_row["id"]) or {}
         return {"run_id": run_id, "memory_item": memory}
 
     def _connect(self) -> sqlite3.Connection:
@@ -480,7 +534,7 @@ class MemoryStore:
         where, params = self._filters(item_type, status, software, project, include_deprecated)
         terms = query_terms(query)
         if terms and self._fts_enabled:
-            fts_query = " OR ".join(terms)
+            fts_query = self._fts_query(terms)
             sql = f"""
                 SELECT mi.*, bm25(memory_fts) AS rank
                 FROM memory_fts
@@ -540,6 +594,16 @@ class MemoryStore:
             clauses.append("AND project = ?")
             params.append(project)
         return " ".join(clauses), params
+
+    def _fts_query(self, terms: list[str]) -> str:
+        return " OR ".join(f'"{term.replace(chr(34), chr(34) + chr(34))}"' for term in terms)
+
+    def _simulation_memory_status(self, status: str) -> tuple[str, float]:
+        if status in {"success", "ok", "passed"}:
+            return "verified", 0.7
+        if status in {"failed", "failure", "error", "timeout", "crashed"}:
+            return "failed", 0.25
+        return "draft", 0.35
 
     def _mark_used(self, item_ids: list[str]) -> None:
         if not item_ids:

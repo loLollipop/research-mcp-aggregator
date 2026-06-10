@@ -19,7 +19,7 @@ async def test_matlab_adapter_check_config_without_matlab_install():
     assert result["matlab_cmd"] == "matlab"
     assert result["timeout_seconds"] == 123
     assert result["scope_notice"]["requires_user_review"] is True
-    assert "matlab/matlab-mcp-core-server" in result["upstream_references"]
+    assert "upstream_references" not in result
 
 
 @pytest.mark.asyncio
@@ -61,6 +61,22 @@ async def test_matlab_evaluate_code_dry_run_uses_working_dir(tmp_path):
     assert result["status"] == "dry_run"
     assert result["cwd"] == str(tmp_path.resolve())
     assert result["command"] == ["matlab", "-batch", "disp(1)"]
+
+
+@pytest.mark.asyncio
+async def test_matlab_check_code_inline_uses_temporary_file(tmp_path):
+    adapter = MatlabAdapter()
+    await adapter.initialize({"matlab_cmd": "matlab"})
+
+    result = await adapter.check_code("disp('hello')", working_dir=str(tmp_path), dry_run=True)
+
+    assert result["status"] == "dry_run"
+    assert result["tool"] == "matlab_check_code"
+    assert result["cwd"] == str(tmp_path.resolve())
+    command = result["command"][2]
+    assert "tmp = [tempname '.m']" in command
+    assert "fwrite(fid, 'disp(''hello'')', 'char')" in command
+    assert "checkcode(tmp)" in command
 
 
 @pytest.mark.asyncio
@@ -161,6 +177,22 @@ async def test_matlab_create_plot_export_script_rejects_unknown_kind(tmp_path):
             output_script=str(tmp_path / "plot_results.m"),
             output_figure=str(tmp_path / "plot.png"),
             kind="bar",
+        )
+
+
+@pytest.mark.asyncio
+async def test_matlab_create_plot_export_script_rejects_missing_columns(tmp_path):
+    adapter = MatlabAdapter()
+    table_path = tmp_path / "results.csv"
+    table_path.write_text("x,y\n1,2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Table column not found"):
+        await adapter.create_plot_export_script(
+            table_path=str(table_path),
+            x_column="x",
+            y_column="missing",
+            output_script=str(tmp_path / "plot_results.m"),
+            output_figure=str(tmp_path / "plot.png"),
         )
 
 

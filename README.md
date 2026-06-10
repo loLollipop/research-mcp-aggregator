@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 <img src="assets/logo.svg" alt="Engineering Research MCP logo" width="128" />
 
@@ -27,7 +27,7 @@ plot results, and prepare manuscript assets from a single MCP endpoint.
 
 ## What it does
 
-`research-mcp` replaces a pile of small research MCP servers with one local server.
+`research-mcp` brings common engineering research workflow tools into one local server.
 
 | Area | Built-in capability |
 | --- | --- |
@@ -47,7 +47,7 @@ Configure `research-mcp` once, then call tools directly such as `arxiv_search`,
 
 The simulation tools are an assistant-facing control surface for installed local
 solvers, not a replacement for COMSOL, ANSYS Fluent, PFC, or expert validation.
-They help Codex, Claude, Cursor, and other MCP clients inspect files, preflight
+They help MCP clients and AI coding assistants inspect files, preflight
 batch commands with `dry_run`, drive native solver APIs or bridge sessions, parse
 exported tables/logs, and organize reproducible numerical-study artifacts.
 
@@ -210,14 +210,13 @@ export MATLAB_CMD="/path/to/matlab"
 export MATLAB_TIMEOUT_SECONDS="600"
 ```
 
-The MATLAB adapter is inspired by the official MathWorks
-`matlab/matlab-mcp-core-server` and community MATLAB MCP projects, but it stays
-self-contained in Python. It uses MATLAB command-line `-batch` workflows for
-code checking, code evaluation, file execution, test-file execution, and toolbox
-detection. Execution tools default to `dry_run=true` so commands can be reviewed
-before consuming license time or running generated code. It also includes local
-parsing of MATLAB-exported CSV/TSV/TXT tables and generation of MATLAB
-plot-export scripts for reviewed post-processing workflows.
+The MATLAB adapter is self-contained in Python and uses MATLAB command-line
+`-batch` workflows for code checking, code evaluation, file execution,
+test-file execution, and toolbox detection. Execution tools default to
+`dry_run=true` so commands can be reviewed before consuming license time or
+running generated code. It also includes local parsing of MATLAB-exported
+CSV/TSV/TXT tables and generation of MATLAB plot-export scripts for reviewed
+post-processing workflows.
 
 Minimal local smoke check, if MATLAB is installed and licensed:
 
@@ -244,7 +243,7 @@ artifacts under `outputs/`, which is ignored by git.
 | Stable local | deterministic file, parser, plotting, BibTeX, LaTeX, docx, and exported-table utilities |
 | Stable API-backed | arXiv, OpenAlex, Semantic Scholar, Zotero, and MinerU workflows with normal network/API caveats |
 | Experimental live solver | COMSOL MPh, PyFluent, and PFC bridge control requiring local installs and licenses |
-| Migration helpers | compatibility tools for replacing previously separate MCP servers |
+| Catalog helpers | capability discovery and workflow-template utilities |
 
 ---
 
@@ -258,11 +257,8 @@ python -m ruff check .
 python -m build
 ```
 
-PFC documentation browsing needs vendored docs in development checkouts:
-
-```bash
-python scripts/vendor_external_mcps.py pfc-mcp
-```
+Optional PFC documentation browsing uses locally available documentation assets
+when present in development checkouts.
 
 ---
 
