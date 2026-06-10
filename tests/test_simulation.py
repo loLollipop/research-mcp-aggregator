@@ -65,6 +65,11 @@ async def test_simulation_config_defaults():
     assert status["comsol_cmd"] == "comsol"
     assert status["fluent_cmd"] == "fluent"
     assert status["pfc_cmd"] == "pfc"
+    assert status["commands"] == {"comsol": "comsol", "fluent": "fluent", "pfc": "pfc"}
+    assert status["scope_notice"]["role"] == "assistant_control_surface_for_existing_local_solvers"
+    assert status["scope_notice"]["validation_scope"] == "not_solver_or_physics_validation"
+    assert status["pfc_bridge"]["bridge_url"] == "ws://localhost:9001"
+    assert set(status["optional_backends"]) == {"mph", "pyfluent", "websockets"}
 
 
 @pytest.mark.asyncio
@@ -85,6 +90,10 @@ async def test_simulation_workflow_template_uses_local_tools():
     )
     assert result["solver"] == "pfc"
     assert "pfc_run_script" in result["local_tools"]
+    assert result["scope_notice"]["role"] == "assistant_control_surface_for_existing_local_solvers"
+    assert result["scope_notice"]["requires_user_review"] is True
+    assert any("dry_run=true" in step for step in result["steps"])
+    assert "boundary and initial conditions" in result["user_validation_checklist"]
 
 
 @pytest.mark.asyncio
@@ -105,6 +114,12 @@ async def test_fluent_parse_residuals_csv(tmp_path):
     assert result["iterations"] == 2
     assert result["converged"] is True
     assert result["final_residuals"]["continuity"] == 1e-5
+    assert result["assessment_scope"] == "final residuals compared with threshold only"
+    assert (
+        result["validation_scope"]
+        == "not solver convergence certification or physics validation"
+    )
+    assert result["scope_notice"]["requires_user_review"] is True
     assert output_plot.exists()
 
 
@@ -429,6 +444,11 @@ async def test_pfc_parse_history_accepts_units_comments_and_d_exponents(tmp_path
     assert result["rows"] == 3
     assert result["source_independent_column"] == "step"
     assert result["summaries"]["energy"]["final"] == 4.0
+    assert (
+        result["assessment_scope"]
+        == "exported PFC history summary only; not DEM model validation"
+    )
+    assert result["scope_notice"]["validation_scope"] == "not_solver_or_physics_validation"
 
 
 @pytest.mark.asyncio
@@ -450,6 +470,11 @@ async def test_comsol_parse_table_summarizes_exported_table(tmp_path):
     assert result["x_column"] == "parameter"
     assert result["summaries"]["temperature"]["max"] == 360.0
     assert result["summaries"]["stress"]["mean"] == pytest.approx(12.3333333333)
+    assert (
+        result["assessment_scope"]
+        == "exported-table summary only; not solver or physics validation"
+    )
+    assert result["scope_notice"]["role"] == "assistant_control_surface_for_existing_local_solvers"
     assert output_plot.exists()
 
 
@@ -521,6 +546,44 @@ async def test_fluent_run_journal_rejects_invalid_working_dir(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_fluent_run_journal_dry_run_returns_command_without_execution(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({"fluent_cmd": "fluent"})
+    journal = tmp_path / "run.jou"
+    journal.write_text("/solve/iterate 1\n", encoding="utf-8")
+
+    with patch(
+        "research_mcp.adapters.simulation_adapter.run_command",
+        side_effect=AssertionError("subprocess should not start"),
+    ):
+        result = await adapter.fluent_run_journal(
+            str(journal),
+            dimension="2d",
+            precision="dp",
+            processors=4,
+            extra_args="-hidden",
+            timeout_seconds=12,
+            dry_run=True,
+        )
+
+    assert result["status"] == "dry_run"
+    assert result["tool"] == "fluent_run_journal"
+    assert result["command"] == [
+        "fluent",
+        "2ddp",
+        "-g",
+        "-i",
+        str(journal.resolve()),
+        "-t",
+        "4",
+        "-hidden",
+    ]
+    assert result["cwd"] == str(tmp_path.resolve())
+    assert result["timeout_seconds"] == 12
+    assert result["input_files"] == {"journal_file": str(journal.resolve())}
+
+
+@pytest.mark.asyncio
 async def test_comsol_run_batch_rejects_unsupported_output_suffix(tmp_path):
     adapter = SimulationAdapter()
     await adapter.initialize({})
@@ -533,6 +596,47 @@ async def test_comsol_run_batch_rejects_unsupported_output_suffix(tmp_path):
     ):
         with pytest.raises(ValueError, match="Unsupported output suffix"):
             await adapter.comsol_run_batch(str(model), output_file="result.txt")
+
+
+@pytest.mark.asyncio
+async def test_comsol_run_batch_dry_run_returns_command_without_creating_output_dir(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({"comsol_cmd": "comsol", "timeout_seconds": 99})
+    model = tmp_path / "model.mph"
+    model.write_text("model", encoding="utf-8")
+    output_file = tmp_path / "new" / "result.mph"
+
+    with patch(
+        "research_mcp.adapters.simulation_adapter.run_command",
+        side_effect=AssertionError("subprocess should not start"),
+    ):
+        result = await adapter.comsol_run_batch(
+            str(model),
+            output_file=str(output_file),
+            study="std1",
+            extra_args="-np 2",
+            dry_run=True,
+        )
+
+    assert result["status"] == "dry_run"
+    assert result["tool"] == "comsol_run_batch"
+    assert result["command"] == [
+        "comsol",
+        "batch",
+        "-inputfile",
+        str(model.resolve()),
+        "-outputfile",
+        str(output_file.resolve()),
+        "-study",
+        "std1",
+        "-np",
+        "2",
+    ]
+    assert result["timeout_seconds"] == 99
+    assert result["input_files"] == {"model_file": str(model.resolve())}
+    assert result["output_files"] == {"model_output": str(output_file.resolve())}
+    assert result["scope_notice"]["requires_user_review"] is True
+    assert not output_file.parent.exists()
 
 
 @pytest.mark.asyncio
@@ -578,6 +682,32 @@ async def test_pfc_run_script_rejects_invalid_working_dir(tmp_path):
 
     with pytest.raises(FileNotFoundError, match="Working directory"):
         await adapter.pfc_run_script(str(script), working_dir=str(tmp_path / "missing"))
+
+
+@pytest.mark.asyncio
+async def test_pfc_run_script_dry_run_returns_command_without_execution(tmp_path):
+    adapter = SimulationAdapter()
+    await adapter.initialize({"pfc_cmd": "pfc"})
+    script = tmp_path / "run.p3dat"
+    script.write_text("model new\n", encoding="utf-8")
+
+    with patch(
+        "research_mcp.adapters.simulation_adapter.run_command",
+        side_effect=AssertionError("subprocess should not start"),
+    ):
+        result = await adapter.pfc_run_script(
+            str(script),
+            extra_args="--console",
+            timeout_seconds=7,
+            dry_run=True,
+        )
+
+    assert result["status"] == "dry_run"
+    assert result["tool"] == "pfc_run_script"
+    assert result["command"] == ["pfc", str(script.resolve()), "--console"]
+    assert result["cwd"] == str(tmp_path.resolve())
+    assert result["timeout_seconds"] == 7
+    assert result["input_files"] == {"script_file": str(script.resolve())}
 
 
 # ------------------------------------------------------------------

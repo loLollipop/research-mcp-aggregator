@@ -158,6 +158,8 @@ async def test_pfc_execute_code_bridge_unavailable():
     assert result["status"] == "bridge_unavailable"
     assert "bridge_url" in result
     assert result["action"] == "Start itasca-mcp-bridge in PFC GUI, then retry"
+    assert result["scope_notice"]["validation_scope"] == "not_solver_or_physics_validation"
+    assert result["state_notice"]["may_modify_active_model"] is True
 
 
 @pytest.mark.asyncio
@@ -178,6 +180,7 @@ async def test_pfc_execute_code_with_mock_bridge():
     result = await adapter.pfc_execute_code("print('hello')")
     assert result["status"] == "ok"
     assert result["output"] == "hello world"
+    assert result["state_notice"]["may_modify_active_model"] is True
     mock_client.execute_code.assert_awaited_once_with(code="print('hello')", timeout_ms=10000)
 
 
@@ -242,6 +245,7 @@ async def test_pfc_execute_task_with_mock_bridge(tmp_path):
     assert result["status"] == "ok"
     assert result["task_id"] == "abcdef"
     assert result["task_status"] == "pending"
+    assert result["state_notice"]["requires_user_review"] is True
     mock_client.execute_task.assert_awaited_once_with(
         script_path=str(script.resolve()),
         description="demo task",

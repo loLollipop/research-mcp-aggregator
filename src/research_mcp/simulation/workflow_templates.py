@@ -43,6 +43,12 @@ SOLVER_TOOLS = {
     "mixed": ["comsol_run_batch", "fluent_run_journal", "pfc_run_script"],
 }
 
+SCOPE_NOTICE = {
+    "role": "assistant_control_surface_for_existing_local_solvers",
+    "validation_scope": "not_solver_or_physics_validation",
+    "requires_user_review": True,
+}
+
 
 def build_workflow_template(
     solver: str = "mixed",
@@ -53,19 +59,30 @@ def build_workflow_template(
     return {
         "solver": solver,
         "objective": objective,
+        "scope_notice": SCOPE_NOTICE,
         "local_tools": ["simulation_check_config", *solver_tools],
         "parameters": parameters or DEFAULT_PARAMETERS,
         "steps": [
             "Record solver version, command path, license environment, and workdir.",
-            "Create one input file per parameter point or a generator script.",
-            "Run the configured local solver command through research-mcp.",
+            "Prepare native solver assets: COMSOL model, Fluent case/journal, or PFC script.",
+            "Use dry_run=true on batch tools to review resolved commands before execution.",
+            "Run the configured local solver command or live native API through research-mcp.",
             "Save stdout, stderr, return code, raw outputs, and configuration.",
-            "Post-process numeric outputs with plot_csv_columns or plot_xy.",
+            "Post-process exported numeric outputs with parser and plotting tools.",
+            "Review solver logs and model assumptions in the native solver before conclusions.",
+        ],
+        "user_validation_checklist": [
+            "units and material models",
+            "boundary and initial conditions",
+            "mesh, timestep, or particle-resolution sensitivity",
+            "solver convergence criteria and residual/history interpretation",
+            "comparison with baseline, benchmark, or experimental data when available",
         ],
         "recommended_outputs": [
             "resolved_parameters.csv",
             "solver_stdout.log",
             "solver_stderr.log",
+            "solver_command.json",
             "raw_results/",
             "figures/",
         ],

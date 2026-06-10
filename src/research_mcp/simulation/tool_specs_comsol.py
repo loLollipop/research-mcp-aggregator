@@ -9,9 +9,12 @@ from research_mcp.adapters import ToolSpec
 
 def build_comsol_tools(adapter: Any) -> list[ToolSpec]:
     return [
-ToolSpec(
+        ToolSpec(
             name="comsol_run_batch",
-            description="Run a COMSOL .mph model in batch mode.",
+            description=(
+                "Run or dry-run an existing COMSOL .mph model through the configured "
+                "local COMSOL batch command."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
@@ -37,6 +40,11 @@ ToolSpec(
                         "description": "Timeout seconds",
                         "minimum": 1,
                         "maximum": 86400,
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "description": "Return resolved command metadata without launching COMSOL",
+                        "default": False,
                     },
                 },
                 "required": ["model_file"],
@@ -167,7 +175,10 @@ ToolSpec(
         ),
         ToolSpec(
             name="comsol_solve",
-            description="Solve the current COMSOL model, optionally for a specific study.",
+            description=(
+                "Request COMSOL to solve the current model; setup and validation remain "
+                "in COMSOL/user workflow."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {

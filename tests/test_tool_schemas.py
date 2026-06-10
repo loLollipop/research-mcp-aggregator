@@ -129,6 +129,33 @@ async def test_no_arg_tools_reject_unknown_arguments_at_validation_boundary():
 
 
 @pytest.mark.asyncio
+async def test_simulation_tool_descriptions_are_assistant_facing_not_solver_replacements():
+    server = ResearchMCPServer()
+    await server.initialize({})
+    try:
+        simulation_specs = [
+            spec
+            for spec in _all_tool_specs(server)
+            if spec.name.startswith(("simulation_", "comsol_", "fluent_", "pfc_"))
+        ]
+
+        assert simulation_specs
+        descriptions = {spec.name: spec.description.lower() for spec in simulation_specs}
+        combined = "\n".join(descriptions.values())
+
+        assert "fully automate" not in combined
+        assert "validate physics" not in combined
+        assert "assistant-facing" in descriptions["simulation_workflow_template"]
+        assert "dry-run" in descriptions["comsol_run_batch"]
+        assert "dry-run" in descriptions["fluent_run_journal"]
+        assert "dry-run" in descriptions["pfc_run_script"]
+        assert "not solver validation" in descriptions["fluent_parse_residuals"]
+        assert "modify the active model state" in descriptions["pfc_execute_code"]
+    finally:
+        await server.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_common_numeric_controls_have_lower_and_upper_bounds():
     server = ResearchMCPServer()
     await server.initialize({})

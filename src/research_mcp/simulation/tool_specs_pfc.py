@@ -9,9 +9,11 @@ from research_mcp.adapters import ToolSpec
 
 def build_pfc_tools(adapter: Any) -> list[ToolSpec]:
     return [
-ToolSpec(
+        ToolSpec(
             name="pfc_run_script",
-            description="Run a PFC/FISH script through the configured PFC command.",
+            description=(
+                "Run or dry-run a PFC/FISH script through the configured local PFC command."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
@@ -30,6 +32,11 @@ ToolSpec(
                         "description": "Timeout seconds",
                         "minimum": 1,
                         "maximum": 86400,
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "description": "Return resolved command metadata without launching PFC",
+                        "default": False,
                     },
                 },
                 "required": ["script_file"],
@@ -64,7 +71,10 @@ ToolSpec(
         ),
         ToolSpec(
             name="pfc_execute_code",
-            description="Execute Python code in a running PFC process via bridge.",
+            description=(
+                "Execute Python code in a running local PFC process via bridge; code may "
+                "modify the active model state."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
@@ -87,7 +97,10 @@ ToolSpec(
         ),
         ToolSpec(
             name="pfc_execute_task",
-            description="Submit a Python script for asynchronous execution in PFC via bridge.",
+            description=(
+                "Submit a Python script for asynchronous execution in local PFC via bridge; "
+                "the script may modify active model state."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {

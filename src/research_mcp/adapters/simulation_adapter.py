@@ -1,12 +1,14 @@
 """Engineering simulation adapter for COMSOL, PFC, and Fluent.
 
-This adapter does not reimplement commercial solvers. It exposes a safe MCP
-control surface around their existing command-line/batch interfaces.
+This adapter does not reimplement commercial solvers. It exposes an
+assistant-facing MCP control surface around existing local solver commands,
+APIs, bridge sessions, and exported result files.
 """
 
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import logging
 import os
 from typing import Any
@@ -42,9 +44,55 @@ from research_mcp.simulation.workflow_templates import build_workflow_template
 logger = logging.getLogger("research-mcp.simulation")
 
 
+SIMULATION_SCOPE_NOTICE = {
+    "role": "assistant_control_surface_for_existing_local_solvers",
+    "summary": (
+        "Helps coding assistants drive installed COMSOL, Fluent, and PFC workflows; "
+        "it does not replace native solver setup, execution semantics, or expert review."
+    ),
+    "validation_scope": "not_solver_or_physics_validation",
+    "requires_user_review": True,
+}
+
+PFC_STATE_NOTICE = {
+    "may_modify_active_model": True,
+    "message": "Bridge code and tasks run inside the local PFC process and may mutate state.",
+    "requires_user_review": True,
+}
+
+
+def _module_status(module_name: str) -> dict[str, Any]:
+    try:
+        available = importlib.util.find_spec(module_name) is not None
+    except (ImportError, ModuleNotFoundError, ValueError):
+        available = False
+    return {"module": module_name, "available": available}
+
+
+def _dry_run_response(
+    tool: str,
+    args: list[str],
+    cwd: Any,
+    timeout_seconds: int,
+    input_files: dict[str, str],
+    output_files: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "status": "dry_run",
+        "tool": tool,
+        "command": args,
+        "cwd": str(cwd),
+        "timeout_seconds": timeout_seconds,
+        "input_files": input_files,
+        "output_files": output_files or {},
+        "scope_notice": SIMULATION_SCOPE_NOTICE,
+        "next_action": "Review the command metadata, then rerun with dry_run=false to execute.",
+    }
+
+
 @register_adapter
 class SimulationAdapter(BaseAdapter):
-    """Run engineering simulation software through configured batch commands."""
+    """Expose assistant-facing controls for installed local simulation software."""
 
     adapter_name = "simulation"
 
@@ -61,7 +109,7 @@ class SimulationAdapter(BaseAdapter):
     def metadata(self) -> AdapterMeta:
         return AdapterMeta(
             name="simulation",
-            description="Batch control for COMSOL, PFC, and ANSYS Fluent",
+            description="Assistant-facing control surface for local COMSOL, PFC, and Fluent",
             tools=build_simulation_tools(self),
         )
 
@@ -110,11 +158,29 @@ class SimulationAdapter(BaseAdapter):
             self._bridge_client = None
 
     async def check_config(self) -> dict[str, Any]:
+        bridge_cfg = self._get_bridge_config()
         return {
             "comsol_cmd": self.comsol_cmd,
             "fluent_cmd": self.fluent_cmd,
             "pfc_cmd": self.pfc_cmd,
             "timeout_seconds": self.timeout_seconds,
+            "commands": {
+                "comsol": self.comsol_cmd,
+                "fluent": self.fluent_cmd,
+                "pfc": self.pfc_cmd,
+            },
+            "optional_backends": {
+                "mph": _module_status("mph"),
+                "pyfluent": _module_status("ansys.fluent.core"),
+                "websockets": _module_status("websockets"),
+            },
+            "pfc_bridge": {
+                "bridge_url": bridge_cfg.url,
+                "configured": True,
+                "connected": self._bridge_client.connected if self._bridge_client else False,
+                "request_timeout_s": bridge_cfg.request_timeout_s,
+            },
+            "scope_notice": SIMULATION_SCOPE_NOTICE,
             "env": {
                 "COMSOL_CMD": os.environ.get("COMSOL_CMD", ""),
                 "FLUENT_CMD": os.environ.get("FLUENT_CMD", ""),
@@ -144,6 +210,7 @@ class SimulationAdapter(BaseAdapter):
             "env": {
                 "PFC_MCP_BRIDGE_URL": os.environ.get("PFC_MCP_BRIDGE_URL", ""),
             },
+            "scope_notice": SIMULATION_SCOPE_NOTICE,
         }
 
     async def pfc_execute_code(self, code: str, timeout_seconds: int = 10) -> dict[str, Any]:
@@ -165,6 +232,7 @@ class SimulationAdapter(BaseAdapter):
                 "reason": message,
                 "output": partial_output,
                 "action": ("PFC state may be partially modified; verify before retrying"),
+                "state_notice": PFC_STATE_NOTICE,
             }
         if status == "timeout":
             return {
@@ -172,12 +240,14 @@ class SimulationAdapter(BaseAdapter):
                 "reason": message,
                 "output": partial_output,
                 "action": "Reduce code complexity or increase timeout",
+                "state_notice": PFC_STATE_NOTICE,
             }
         if status == "interrupted":
             return {
                 "status": "interrupted",
                 "reason": message,
                 "output": partial_output,
+                "state_notice": PFC_STATE_NOTICE,
             }
         if status == "error":
             return {
@@ -186,12 +256,14 @@ class SimulationAdapter(BaseAdapter):
                 "message": error_block.get("message", message),
                 "reason": message,
                 "output": partial_output,
+                "state_notice": PFC_STATE_NOTICE,
             }
 
         data = response.get("data") or {}
         result: dict[str, Any] = {
             "status": "ok",
             "output": data.get("output") or "(no output)",
+            "state_notice": PFC_STATE_NOTICE,
         }
         if data.get("result") is not None:
             result["result"] = data["result"]
@@ -219,6 +291,7 @@ class SimulationAdapter(BaseAdapter):
                 "task_status": status,
                 "message": message or "Task submission rejected by bridge",
                 "action": "Check script path and bridge logs, then retry",
+                "state_notice": PFC_STATE_NOTICE,
             }
         return {
             "status": "ok",
@@ -227,6 +300,7 @@ class SimulationAdapter(BaseAdapter):
             "description": description,
             "task_status": "pending",
             "message": message or "submitted",
+            "state_notice": PFC_STATE_NOTICE,
         }
 
     async def pfc_check_task_status(
@@ -290,6 +364,7 @@ class SimulationAdapter(BaseAdapter):
             "pagination": data.get("pagination") or response.get("pagination") or {},
             "result": data.get("result"),
             "error": data.get("error"),
+            "state_notice": PFC_STATE_NOTICE,
         }
 
     async def pfc_list_tasks(self, skip_newest: int = 0, limit: int = 32) -> dict[str, Any]:
@@ -371,7 +446,10 @@ class SimulationAdapter(BaseAdapter):
             "bridge_url": cfg.url,
             "reason": reason,
             "action": ("Start itasca-mcp-bridge in PFC GUI, then retry"),
+            "scope_notice": SIMULATION_SCOPE_NOTICE,
         }
+        if operation in {"pfc_execute_code", "pfc_execute_task", "pfc_check_task_status"}:
+            result["state_notice"] = PFC_STATE_NOTICE
         if task_id is not None:
             result["task_id"] = task_id
         return result
@@ -455,6 +533,7 @@ class SimulationAdapter(BaseAdapter):
         study: str = "",
         extra_args: str = "",
         timeout_seconds: int = 0,
+        dry_run: bool = False,
     ) -> dict[str, Any]:
         model = require_file(model_file)
         executable_name = os.path.basename(self.comsol_cmd).lower()
@@ -467,12 +546,26 @@ class SimulationAdapter(BaseAdapter):
                 output_file,
                 default_dir=model.parent,
                 allowed_suffixes=COMSOL_MODEL_SUFFIXES,
+                create_parent=not dry_run,
             )
             args.extend(["-outputfile", str(output)])
         if study:
             args.extend(["-study", study])
         args.extend(split_extra_args(extra_args))
-        return await run_command(args, model.parent, timeout_seconds or self.timeout_seconds)
+        effective_timeout = timeout_seconds or self.timeout_seconds
+        if dry_run:
+            output_files = {"model_output": str(output)} if output_file else {}
+            return _dry_run_response(
+                "comsol_run_batch",
+                args,
+                model.parent,
+                effective_timeout,
+                {"model_file": str(model)},
+                output_files,
+            )
+        result = await run_command(args, model.parent, effective_timeout)
+        result["scope_notice"] = SIMULATION_SCOPE_NOTICE
+        return result
 
     async def comsol_parse_table(
         self,
@@ -498,6 +591,8 @@ class SimulationAdapter(BaseAdapter):
             "result_columns": list(series),
             "summaries": summaries,
             "output_plot": plot_path,
+            "assessment_scope": "exported-table summary only; not solver or physics validation",
+            "scope_notice": SIMULATION_SCOPE_NOTICE,
         }
 
     async def fluent_check_pyfluent(self) -> dict[str, Any]:
@@ -551,6 +646,7 @@ class SimulationAdapter(BaseAdapter):
         processors: int = 1,
         extra_args: str = "",
         timeout_seconds: int = 0,
+        dry_run: bool = False,
     ) -> dict[str, Any]:
         journal = require_file(journal_file)
         workdir = resolve_working_dir(working_dir, journal.parent)
@@ -559,7 +655,18 @@ class SimulationAdapter(BaseAdapter):
         if processors > 1:
             args.extend(["-t", str(processors)])
         args.extend(split_extra_args(extra_args))
-        return await run_command(args, workdir, timeout_seconds or self.timeout_seconds)
+        effective_timeout = timeout_seconds or self.timeout_seconds
+        if dry_run:
+            return _dry_run_response(
+                "fluent_run_journal",
+                args,
+                workdir,
+                effective_timeout,
+                {"journal_file": str(journal)},
+            )
+        result = await run_command(args, workdir, effective_timeout)
+        result["scope_notice"] = SIMULATION_SCOPE_NOTICE
+        return result
 
     async def fluent_parse_residuals(
         self,
@@ -585,6 +692,9 @@ class SimulationAdapter(BaseAdapter):
             "threshold": threshold,
             "converged": converged,
             "output_plot": plot_path,
+            "assessment_scope": "final residuals compared with threshold only",
+            "validation_scope": "not solver convergence certification or physics validation",
+            "scope_notice": SIMULATION_SCOPE_NOTICE,
         }
 
     async def pfc_run_script(
@@ -593,12 +703,24 @@ class SimulationAdapter(BaseAdapter):
         working_dir: str = "",
         extra_args: str = "",
         timeout_seconds: int = 0,
+        dry_run: bool = False,
     ) -> dict[str, Any]:
         script = require_file(script_file)
         workdir = resolve_working_dir(working_dir, script.parent)
         args = [self.pfc_cmd, str(script)]
         args.extend(split_extra_args(extra_args))
-        return await run_command(args, workdir, timeout_seconds or self.timeout_seconds)
+        effective_timeout = timeout_seconds or self.timeout_seconds
+        if dry_run:
+            return _dry_run_response(
+                "pfc_run_script",
+                args,
+                workdir,
+                effective_timeout,
+                {"script_file": str(script)},
+            )
+        result = await run_command(args, workdir, effective_timeout)
+        result["scope_notice"] = SIMULATION_SCOPE_NOTICE
+        return result
 
     async def pfc_parse_history(
         self,
@@ -621,4 +743,6 @@ class SimulationAdapter(BaseAdapter):
             "series_names": list(series),
             "summaries": summaries,
             "output_plot": plot_path,
+            "assessment_scope": "exported PFC history summary only; not DEM model validation",
+            "scope_notice": SIMULATION_SCOPE_NOTICE,
         }

@@ -11,13 +11,19 @@ def build_common_tools(adapter: Any) -> list[ToolSpec]:
     return [
         ToolSpec(
             name="simulation_check_config",
-            description="Show configured command names/paths for COMSOL, PFC, and Fluent.",
+            description=(
+                "Show assistant-facing preflight config for installed local COMSOL, "
+                "PFC, and Fluent workflows."
+            ),
             input_schema={"type": "object", "properties": {}},
             handler=adapter.check_config,
         ),
         ToolSpec(
             name="simulation_workflow_template",
-            description="Create a local simulation workflow checklist.",
+            description=(
+                "Create an assistant-facing checklist for driving existing local "
+                "solver workflows without replacing solver validation."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {

@@ -41,6 +41,18 @@ Configure `research-mcp` once, then call tools directly such as `arxiv_search`,
 `pdf_extract_mineru`, `zotero_add_by_doi`, `comsol_parse_table`, `plot_xy`,
 `latex_compile`, or `docx_create`.
 
+### Simulation philosophy
+
+The simulation tools are an assistant-facing control surface for installed local
+solvers, not a replacement for COMSOL, ANSYS Fluent, PFC, or expert validation.
+They help Codex, Claude, Cursor, and other MCP clients inspect files, preflight
+batch commands with `dry_run`, drive native solver APIs or bridge sessions, parse
+exported tables/logs, and organize reproducible numerical-study artifacts.
+
+Model setup, units, materials, boundary conditions, mesh or timestep sensitivity,
+solver convergence, and final physical interpretation remain in the native solver
+and researcher review loop.
+
 ---
 
 ## Install
@@ -173,6 +185,9 @@ export SIM_TIMEOUT_SECONDS="3600"
 
 Stable simulation utilities include planning, file inspection, exported-table parsing, and plotting.
 Live solver sessions depend on local commercial software, licenses, and machine state.
+Batch tools such as `comsol_run_batch`, `fluent_run_journal`, and `pfc_run_script`
+support `dry_run=true` so an assistant can review resolved commands before spending
+license time or modifying solver state.
 
 For PFC GUI bridge workflows, start the bridge inside the GUI process:
 
@@ -249,6 +264,16 @@ MIT. Commercial solvers such as COMSOL, ANSYS Fluent, and PFC are not included.
 | 仿真 | COMSOL、Fluent、PFC 的规划、fallback、live adapter 和结果解析 |
 | 写作 | BibTeX、LaTeX、docx、Nature-style 规划 |
 | 图表 | Matplotlib SVG/PNG/PDF |
+
+## 仿真模块定位
+
+仿真相关工具的定位是给 Codex、Claude、Cursor 等编程助手提供一个更高效的
+本地求解器控制入口，而不是替代 COMSOL、ANSYS Fluent、PFC 本身。它们帮助助手
+检查文件、预检 batch 命令、调用原生求解器 API 或 bridge 会话、解析导出的表格
+和日志，并整理可复现的数值模拟过程。
+
+模型设置、单位、材料、边界条件、网格或时间步敏感性、收敛判据和最终物理解释，
+仍需要在原生求解器和研究者审查流程中确认。
 
 ## 快速安装
 

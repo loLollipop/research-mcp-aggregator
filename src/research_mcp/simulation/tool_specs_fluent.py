@@ -9,9 +9,12 @@ from research_mcp.adapters import ToolSpec
 
 def build_fluent_tools(adapter: Any) -> list[ToolSpec]:
     return [
-ToolSpec(
+        ToolSpec(
             name="fluent_run_journal",
-            description="Run ANSYS Fluent in batch mode with a journal file.",
+            description=(
+                "Run or dry-run an ANSYS Fluent journal through the configured local "
+                "Fluent command."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
@@ -40,6 +43,11 @@ ToolSpec(
                         "minimum": 1,
                         "maximum": 86400,
                     },
+                    "dry_run": {
+                        "type": "boolean",
+                        "description": "Return resolved command metadata without launching Fluent",
+                        "default": False,
+                    },
                 },
                 "required": ["journal_file"],
             },
@@ -47,7 +55,10 @@ ToolSpec(
         ),
         ToolSpec(
             name="fluent_parse_residuals",
-            description="Parse Fluent residual history and assess convergence.",
+            description=(
+                "Parse Fluent residual history and summarize final values against a "
+                "threshold; this is not solver validation."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
@@ -78,7 +89,10 @@ ToolSpec(
         ),
         ToolSpec(
             name="fluent_launch_session",
-            description="Launch a local Ansys Fluent solver session through PyFluent.",
+            description=(
+                "Launch a local Ansys Fluent solver session through PyFluent for "
+                "assistant-driven native Fluent operations."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
@@ -139,7 +153,10 @@ ToolSpec(
         ),
         ToolSpec(
             name="fluent_execute_tui",
-            description="Execute Fluent TUI commands in a live PyFluent session.",
+            description=(
+                "Execute Fluent TUI commands in a live PyFluent session; commands may "
+                "modify the active Fluent case."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {

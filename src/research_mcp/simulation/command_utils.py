@@ -58,6 +58,7 @@ def resolve_output_path(
     output_path: str,
     default_dir: Path | None = None,
     allowed_suffixes: set[str] | None = None,
+    create_parent: bool = True,
 ) -> Path:
     raw_path = Path(output_path).expanduser()
     if default_dir and not raw_path.is_absolute():
@@ -68,7 +69,8 @@ def resolve_output_path(
     if allowed_suffixes is not None and suffix not in allowed_suffixes:
         allowed = ", ".join(sorted(allowed_suffixes))
         raise ValueError(f"Unsupported output suffix '{suffix}'. Allowed suffixes: {allowed}")
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if create_parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 
