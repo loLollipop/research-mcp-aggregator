@@ -37,11 +37,13 @@ plot results, and prepare manuscript assets from a single MCP endpoint.
 | Simulation | COMSOL, Fluent, PFC, MATLAB planning, batch fallbacks, live adapters, result parsers |
 | Writing | BibTeX helpers, LaTeX compile/validation, Word/docx editing |
 | Figures | Matplotlib SVG/PNG/PDF plots from arrays or CSV columns |
+| OriginLab | Windows Origin/OriginPro worksheet import, graph creation, styling, image export, and LabTalk escape hatch |
 | Planning | Literature-review, simulation-study, paper-asset, and Nature-style plans |
 
 Configure `research-mcp` once, then call tools directly such as `arxiv_search`,
 `pdf_extract_mineru`, `zotero_add_by_doi`, `memory_search`,
-`comsol_parse_table`, `matlab_run_file`, `plot_xy`, `latex_compile`, or `docx_create`.
+`comsol_parse_table`, `matlab_run_file`, `origin_create_plot`, `plot_xy`,
+`latex_compile`, or `docx_create`.
 
 ### Simulation philosophy
 
@@ -76,6 +78,7 @@ uv pip install -e ".[dev]"      # test/lint/build tools
 uv pip install -e ".[comsol]"   # COMSOL MPh backend
 uv pip install -e ".[fluent]"   # PyFluent backend
 uv pip install -e ".[pfc]"      # PFC bridge websocket client
+uv pip install -e ".[origin]"   # OriginLab Origin/OriginPro automation on Windows
 ```
 
 Start the server:
@@ -123,6 +126,8 @@ Development checkout config:
         "FLUENT_CMD": "fluent",
         "PFC_CMD": "pfc",
         "MATLAB_CMD": "matlab",
+        "ORIGIN_EXE": "D:/software/origin/Origin64.exe",
+        "ORIGIN_VISIBLE": "1",
         "LATEX_CMD": "latexmk"
       }
     }
@@ -146,6 +151,7 @@ Only set the environment variables for workflows you actually use.
 | Zotero | `zotero_status`, `zotero_search_items`, `zotero_get_item`, `zotero_create_collection`, `zotero_add_by_doi`, `zotero_update_item_tags` |
 | Simulation | `simulation_check_config`, `simulation_workflow_template`, `comsol_*`, `fluent_*`, `pfc_*` |
 | MATLAB | `matlab_check_config`, `matlab_create_script`, `matlab_check_code`, `matlab_evaluate_code`, `matlab_run_file`, `matlab_run_test_file`, `matlab_detect_toolboxes`, `matlab_parse_table`, `matlab_create_plot_export_script` |
+| OriginLab | `origin_check_config`, `origin_get_info`, `origin_new_project`, `origin_open_project`, `origin_save_project`, `origin_import_csv`, `origin_list_worksheets`, `origin_create_plot`, `origin_apply_publication_style`, `origin_export_graph`, `origin_execute_labtalk`, `origin_release` |
 | PFC docs | `pfc_docs_status`, `pfc_browse_commands`, `pfc_query_command`, `pfc_browse_python_api`, `pfc_query_python_api` |
 | Figures | `plot_xy`, `plot_csv_columns` |
 | Writing | `format_bibtex`, `generate_citation_key`, `parse_bibtex` |
@@ -242,7 +248,7 @@ artifacts under `outputs/`, which is ignored by git.
 | --- | --- |
 | Stable local | deterministic file, parser, plotting, BibTeX, LaTeX, docx, and exported-table utilities |
 | Stable API-backed | arXiv, OpenAlex, Semantic Scholar, Zotero, and MinerU workflows with normal network/API caveats |
-| Experimental live solver | COMSOL MPh, PyFluent, and PFC bridge control requiring local installs and licenses |
+| Experimental live desktop/solver | COMSOL MPh, PyFluent, PFC bridge, MATLAB, and OriginLab control requiring local installs and licenses |
 | Catalog helpers | capability discovery and workflow-template utilities |
 
 ---
@@ -266,6 +272,7 @@ when present in development checkouts.
 
 - Live COMSOL, Fluent, and PFC control is experimental and not a substitute for vendor-side validation.
 - MATLAB command-line execution is experimental and requires a local MATLAB installation and license.
+- OriginLab automation is Windows-only, requires a licensed local Origin/OriginPro installation, and is not a substitute for manual figure review.
 - Public scholarly APIs can be rate-limited or return incomplete metadata.
 - MinerU parsing uploads PDFs to the configured MinerU service; use it only for files you are allowed to process externally.
 - Public beta tool schemas may change before a stable release.

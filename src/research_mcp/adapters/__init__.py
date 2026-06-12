@@ -88,6 +88,7 @@ def discover_adapters() -> None:
         memory_adapter,
         nature_adapter,
         openalex_adapter,
+        origin_adapter,
         pdf_adapter,
         pfc_docs_adapter,
         semantic_scholar_adapter,
