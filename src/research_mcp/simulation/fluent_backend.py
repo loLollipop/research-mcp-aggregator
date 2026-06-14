@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib
+import importlib.metadata
+import importlib.util
 import inspect
 import os
 from dataclasses import dataclass
@@ -30,21 +32,28 @@ class FluentBackend:
         self._sessions: dict[str, Any] = {}
 
     def check_pyfluent(self) -> dict[str, Any]:
+        """Check PyFluent availability without importing the heavy runtime module."""
         try:
-            pyfluent = importlib.import_module("ansys.fluent.core")
-        except ImportError:
+            available = importlib.util.find_spec("ansys.fluent.core") is not None
+        except (ImportError, ModuleNotFoundError, ValueError):
+            available = False
+
+        if not available:
             return {
                 "status": "not_found",
                 "module": "ansys.fluent.core",
                 "action": "Install the simulation extra with ansys-fluent-core available.",
             }
-        except Exception as exc:
-            return {"status": "error", "module": "ansys.fluent.core", "message": str(exc)}
+
+        try:
+            version = importlib.metadata.version("ansys-fluent-core")
+        except importlib.metadata.PackageNotFoundError:
+            version = "unknown"
 
         return {
             "status": "available",
             "module": "ansys.fluent.core",
-            "version": getattr(pyfluent, "__version__", "unknown"),
+            "version": version,
             "ansys_root": os.environ.get("ANSYS_ROOT", ""),
             "active_sessions": sorted(self._sessions),
         }

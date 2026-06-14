@@ -9,6 +9,8 @@ running its MCP server or duplicating its global state machinery.
 from __future__ import annotations
 
 import importlib
+import importlib.metadata
+import importlib.util
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as _FutureTimeout
@@ -64,22 +66,32 @@ class ComsolBackend:
     # ------------------------------------------------------------------
 
     def check_mph(self) -> dict[str, Any]:
-        """Check whether the MPh library is importable."""
+        """Check whether the MPh library appears available without importing it.
+
+        Importing ``mph`` can initialize JPype/COMSOL discovery and block in lightweight
+        MCP smoke checks, so availability probing must stay metadata-only.
+        """
         try:
-            mph = importlib.import_module("mph")
-        except ImportError:
+            available = importlib.util.find_spec("mph") is not None
+        except (ImportError, ModuleNotFoundError, ValueError):
+            available = False
+
+        if not available:
             return {
                 "status": "not_found",
                 "module": "mph",
                 "action": "Install MPh: pip install MPh",
             }
-        except Exception as exc:
-            return {"status": "error", "module": "mph", "message": str(exc)}
+
+        try:
+            version = importlib.metadata.version("MPh")
+        except importlib.metadata.PackageNotFoundError:
+            version = "unknown"
 
         return {
             "status": "available",
             "module": "mph",
-            "version": getattr(mph, "__version__", "unknown"),
+            "version": version,
             "connected": self._connected,
             "host": self._host,
             "port": self._port,

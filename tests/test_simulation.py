@@ -180,9 +180,15 @@ async def test_fluent_check_pyfluent_not_found():
     adapter = SimulationAdapter()
     await adapter.initialize({})
 
-    with patch(
-        "research_mcp.simulation.fluent_backend.importlib.import_module",
-        side_effect=ImportError,
+    with (
+        patch(
+            "research_mcp.simulation.fluent_backend.importlib.util.find_spec",
+            return_value=None,
+        ),
+        patch(
+            "research_mcp.simulation.fluent_backend.importlib.import_module",
+            side_effect=AssertionError("check_pyfluent must not import PyFluent"),
+        ),
     ):
         result = await adapter.fluent_check_pyfluent()
 
@@ -194,11 +200,20 @@ async def test_fluent_check_pyfluent_not_found():
 async def test_fluent_check_pyfluent_available():
     adapter = SimulationAdapter()
     await adapter.initialize({})
-    module = SimpleNamespace(__version__="1.2.3")
 
-    with patch(
-        "research_mcp.simulation.fluent_backend.importlib.import_module",
-        return_value=module,
+    with (
+        patch(
+            "research_mcp.simulation.fluent_backend.importlib.util.find_spec",
+            return_value=object(),
+        ),
+        patch(
+            "research_mcp.simulation.fluent_backend.importlib.metadata.version",
+            return_value="1.2.3",
+        ),
+        patch(
+            "research_mcp.simulation.fluent_backend.importlib.import_module",
+            side_effect=AssertionError("check_pyfluent must not import PyFluent"),
+        ),
     ):
         result = await adapter.fluent_check_pyfluent()
 
@@ -720,9 +735,15 @@ async def test_comsol_check_mph_not_found():
     adapter = SimulationAdapter()
     await adapter.initialize({})
 
-    with patch(
-        "research_mcp.simulation.comsol_backend.importlib.import_module",
-        side_effect=ImportError,
+    with (
+        patch(
+            "research_mcp.simulation.comsol_backend.importlib.util.find_spec",
+            return_value=None,
+        ),
+        patch(
+            "research_mcp.simulation.comsol_backend.importlib.import_module",
+            side_effect=AssertionError("check_mph must not import MPh"),
+        ),
     ):
         result = await adapter.comsol_check_mph()
 
@@ -734,11 +755,20 @@ async def test_comsol_check_mph_not_found():
 async def test_comsol_check_mph_available():
     adapter = SimulationAdapter()
     await adapter.initialize({})
-    mph_mod = SimpleNamespace(__version__="1.2.0")
 
-    with patch(
-        "research_mcp.simulation.comsol_backend.importlib.import_module",
-        return_value=mph_mod,
+    with (
+        patch(
+            "research_mcp.simulation.comsol_backend.importlib.util.find_spec",
+            return_value=object(),
+        ),
+        patch(
+            "research_mcp.simulation.comsol_backend.importlib.metadata.version",
+            return_value="1.2.0",
+        ),
+        patch(
+            "research_mcp.simulation.comsol_backend.importlib.import_module",
+            side_effect=AssertionError("check_mph must not import MPh"),
+        ),
     ):
         result = await adapter.comsol_check_mph()
 
