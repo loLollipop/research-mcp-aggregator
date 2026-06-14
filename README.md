@@ -268,6 +268,12 @@ when present in development checkouts.
 
 ---
 
+## Friendly links
+
+- [Linux.do](https://linux.do/)
+
+---
+
 ## Limitations
 
 - Live COMSOL, Fluent, and PFC control is experimental and not a substitute for vendor-side validation.
@@ -281,4 +287,4 @@ when present in development checkouts.
 
 ## License
 
-MIT. Commercial solvers such as COMSOL, ANSYS Fluent, and PFC are not included.
+MIT.

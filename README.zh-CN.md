@@ -254,6 +254,12 @@ python -m build
 
 ---
 
+## 友情链接
+
+- [Linux.do](https://linux.do/)
+
+---
+
 ## 边界
 
 - Live COMSOL、Fluent、PFC control 是实验性能力，不能替代厂商侧验证。
@@ -266,4 +272,4 @@ python -m build
 
 ## License
 
-MIT。COMSOL、ANSYS Fluent、PFC 等商业软件不包含在本项目中。
+MIT。
